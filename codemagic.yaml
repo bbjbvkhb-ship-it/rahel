@@ -24,31 +24,41 @@ workflows:
         script: |
           cd ios
           pod install --verbose > pod_install.log 2>&1 || (tail -n 200 pod_install.log && exit 1)
-      - name: Build iOS App (xcodebuild)
+      - name: Archive iOS App
         script: |
-          xcodebuild build \
+          xcodebuild archive \
             -workspace ios/Runner.xcworkspace \
             -scheme Runner \
             -configuration Release \
             -sdk iphoneos \
-            -derivedDataPath build/ios \
+            -archivePath build/ios/Runner.xcarchive \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
             DEVELOPMENT_TEAM="" \
             | xcpretty || true
-      - name: Package IPA
-        script: |
-          # Find the built .app
-          APP_PATH=$(find build/ios -name "Runner.app" -print | head -1)
-          echo "Found app at: $APP_PATH"
 
-          # Create IPA structure: Payload/Runner.app → zipped as .ipa
+          # Verify archive was created
+          ls -la build/ios/Runner.xcarchive/Products/Applications/ || true
+      - name: Package IPA from Archive
+        script: |
+          APP_PATH="build/ios/Runner.xcarchive/Products/Applications/Runner.app"
+
+          if [ ! -d "$APP_PATH" ]; then
+            echo "ERROR: Runner.app not found in archive!"
+            find build/ios/Runner.xcarchive -name "*.app" | head -5
+            exit 1
+          fi
+
+          echo "Info.plist check:"
+          ls "$APP_PATH/Info.plist" && echo "✅ Info.plist exists" || echo "❌ Info.plist missing"
+
+          # Package into IPA
           mkdir -p build/ios/ipa/Payload
           cp -r "$APP_PATH" build/ios/ipa/Payload/Runner.app
           cd build/ios/ipa
-          zip -r ../Rahel.ipa Payload
-          echo "IPA created at build/ios/Rahel.ipa"
+          zip -r ../Rahel.ipa Payload -x "*.DS_Store"
+          echo "✅ IPA created: build/ios/Rahel.ipa"
+          ls -lh ../Rahel.ipa
     artifacts:
       - build/ios/Rahel.ipa
-      - build/ios/**/*.app
