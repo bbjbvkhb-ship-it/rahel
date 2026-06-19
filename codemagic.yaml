@@ -24,41 +24,43 @@ workflows:
         script: |
           cd ios
           pod install --verbose > pod_install.log 2>&1 || (tail -n 200 pod_install.log && exit 1)
-      - name: Archive iOS App
+      - name: Build iOS App
         script: |
-          xcodebuild archive \
+          xcodebuild build \
             -workspace ios/Runner.xcworkspace \
             -scheme Runner \
             -configuration Release \
             -sdk iphoneos \
-            -archivePath build/ios/Runner.xcarchive \
+            -derivedDataPath build/ios \
+            ONLY_ACTIVE_ARCH=NO \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGN_IDENTITY="" \
-            DEVELOPMENT_TEAM="" \
-            | xcpretty || true
+            DEVELOPMENT_TEAM=""
 
-          # Verify archive was created
-          ls -la build/ios/Runner.xcarchive/Products/Applications/ || true
-      - name: Package IPA from Archive
+          echo "--- Listing build products ---"
+          find build/ios/Build/Products -maxdepth 3 -type d | head -20
+      - name: Package IPA
         script: |
-          APP_PATH="build/ios/Runner.xcarchive/Products/Applications/Runner.app"
+          # Known path for xcodebuild build with -derivedDataPath
+          APP_PATH="build/ios/Build/Products/Release-iphoneos/Runner.app"
 
           if [ ! -d "$APP_PATH" ]; then
-            echo "ERROR: Runner.app not found in archive!"
-            find build/ios/Runner.xcarchive -name "*.app" | head -5
+            echo "ERROR: Runner.app not found at expected path!"
+            echo "Searching all build outputs..."
+            find build/ios -name "Runner.app" -type d 2>/dev/null | head -10
             exit 1
           fi
 
-          echo "Info.plist check:"
-          ls "$APP_PATH/Info.plist" && echo "✅ Info.plist exists" || echo "❌ Info.plist missing"
+          echo "✅ Runner.app found"
+          echo "Info.plist: $(ls $APP_PATH/Info.plist 2>/dev/null && echo EXISTS || echo MISSING)"
 
-          # Package into IPA
-          mkdir -p build/ios/ipa/Payload
-          cp -r "$APP_PATH" build/ios/ipa/Payload/Runner.app
-          cd build/ios/ipa
-          zip -r ../Rahel.ipa Payload -x "*.DS_Store"
-          echo "✅ IPA created: build/ios/Rahel.ipa"
-          ls -lh ../Rahel.ipa
+          # Create IPA
+          mkdir -p build/ios/Payload
+          cp -r "$APP_PATH" build/ios/Payload/Runner.app
+          cd build/ios
+          zip -qr Rahel.ipa Payload
+          rm -rf Payload
+          echo "✅ IPA created: $(ls -lh Rahel.ipa)"
     artifacts:
       - build/ios/Rahel.ipa
