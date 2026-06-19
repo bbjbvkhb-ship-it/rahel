@@ -37,7 +37,18 @@ workflows:
             CODE_SIGN_IDENTITY="" \
             DEVELOPMENT_TEAM="" \
             | xcpretty || true
-          # Check if the .app was produced
-          find build/ios -name "Runner.app" -print | head -5
+      - name: Package IPA
+        script: |
+          # Find the built .app
+          APP_PATH=$(find build/ios -name "Runner.app" -print | head -1)
+          echo "Found app at: $APP_PATH"
+
+          # Create IPA structure: Payload/Runner.app → zipped as .ipa
+          mkdir -p build/ios/ipa/Payload
+          cp -r "$APP_PATH" build/ios/ipa/Payload/Runner.app
+          cd build/ios/ipa
+          zip -r ../Rahel.ipa Payload
+          echo "IPA created at build/ios/Rahel.ipa"
     artifacts:
+      - build/ios/Rahel.ipa
       - build/ios/**/*.app
