@@ -7,7 +7,7 @@ import Foundation
 
 import audio_service
 import audio_session
-import ffmpeg_kit_flutter
+import ffmpeg_kit_flutter_new
 import flutter_inappwebview_macos
 import just_audio
 import sqflite_darwin
