@@ -15,6 +15,7 @@ workflows:
     scripts:
       - name: Fetch Flutter dependencies
         script: |
+          flutter config --no-enable-swift-package-manager
           flutter pub get
       - name: Build iOS App
         script: |
