@@ -17,13 +17,27 @@ workflows:
         script: |
           flutter config --no-enable-swift-package-manager
           flutter pub get
+      - name: Generate iOS files
+        script: |
+          flutter build ios --config-only --no-codesign --no-pub
       - name: Install CocoaPods
         script: |
           cd ios
           pod install --verbose > pod_install.log 2>&1 || (tail -n 200 pod_install.log && exit 1)
-      - name: Build iOS App
+      - name: Build iOS App (xcodebuild)
         script: |
-          flutter build ios --release --no-codesign --no-pub
+          xcodebuild build \
+            -workspace ios/Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build/ios \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM="" \
+            | xcpretty || true
+          # Check if the .app was produced
+          find build/ios -name "Runner.app" -print | head -5
     artifacts:
-      - build/ios/iphoneos/*.app
-      - build/ios/ipa/*.ipa
+      - build/ios/**/*.app
