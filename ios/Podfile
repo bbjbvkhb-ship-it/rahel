@@ -1,11 +1,23 @@
-# Uncomment this line to define a global platform for your project
+# Set platform to iOS 14.0
 platform :ios, '14.0'
 
 # CocoaPods analytics sends usage stats to help guide CocoaPods development.
 # To prevent sending stats, uncomment the line below.
 # cocoapods_stats = false
 
-source 'https://github.com/CocoaPods/Specs.git'
+# Load podhelper.rb from the Flutter SDK
+flutter_ios_podfile_setup = File.join(File.dirname(File.expand_path(__FILE__)), 'Generated.xcconfig')
+if File.exist?(flutter_ios_podfile_setup)
+  flutter_root = nil
+  File.foreach(flutter_ios_podfile_setup) do |line|
+    if line =~ /FLUTTER_ROOT=(.*)/
+      flutter_root = $1.strip
+    end
+  end
+  if flutter_root
+    load File.join(flutter_root, 'packages', 'flutter_tools', 'bin', 'podhelper.rb')
+  end
+end
 
 target 'Runner' do
   use_frameworks!
