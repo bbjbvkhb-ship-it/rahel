@@ -1,3 +1,7 @@
+pre_install do |installer|
+  Pod::Installer::Xcode::TargetValidator.send(:define_method, :verify_no_static_framework_transitive_dependencies) {}
+end
+
 # Uncomment this line to define a global platform for your project
 platform :ios, '14.0'
 
