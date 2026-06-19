@@ -1,23 +1,30 @@
-# Set platform to iOS 14.0
+# Uncomment this line to define a global platform for your project
 platform :ios, '14.0'
 
 # CocoaPods analytics sends usage stats to help guide CocoaPods development.
 # To prevent sending stats, uncomment the line below.
 # cocoapods_stats = false
 
-# Load podhelper.rb from the Flutter SDK
-flutter_ios_podfile_setup = File.join(File.dirname(File.expand_path(__FILE__)), 'Generated.xcconfig')
-if File.exist?(flutter_ios_podfile_setup)
-  flutter_root = nil
-  File.foreach(flutter_ios_podfile_setup) do |line|
-    if line =~ /FLUTTER_ROOT=(.*)/
-      flutter_root = $1.strip
-    end
+project 'Runner', {
+  'Debug' => :debug,
+  'Profile' => :profile,
+  'Release' => :release,
+}
+
+def flutter_root
+  generated_xcode_build_settings_path = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
+  unless File.exist?(generated_xcode_build_settings_path)
+    raise "Generated.xcconfig must exist. If you're running pod install manually, make sure flutter pub get has been run."
   end
-  if flutter_root
-    load File.join(flutter_root, 'packages', 'flutter_tools', 'bin', 'podhelper.rb')
+
+  File.foreach(generated_xcode_build_settings_path) do |line|
+    matches = line.match(/FLUTTER_ROOT=(.*)/)
+    return matches[1].strip if matches
   end
+  raise "FLUTTER_ROOT not found in Generated.xcconfig. Try deleting Generated.xcconfig, then run flutter pub get"
 end
+
+require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
 
 target 'Runner' do
   use_frameworks!
