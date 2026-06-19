@@ -17,9 +17,13 @@ workflows:
         script: |
           flutter config --no-enable-swift-package-manager
           flutter pub get
+      - name: Install CocoaPods
+        script: |
+          cd ios
+          pod install --verbose
       - name: Build iOS App
         script: |
-          flutter build ios --release --no-codesign
+          flutter build ios --release --no-codesign --no-pub
     artifacts:
       - build/ios/iphoneos/*.app
       - build/ios/ipa/*.ipa
