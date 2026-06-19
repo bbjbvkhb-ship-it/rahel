@@ -17,50 +17,30 @@ workflows:
         script: |
           flutter config --no-enable-swift-package-manager
           flutter pub get
-      - name: Generate iOS files
+      - name: Build iOS App (unsigned)
         script: |
-          flutter build ios --config-only --no-codesign --no-pub
-      - name: Install CocoaPods
-        script: |
-          cd ios
-          pod install --verbose > pod_install.log 2>&1 || (tail -n 200 pod_install.log && exit 1)
-      - name: Build iOS App
-        script: |
-          xcodebuild build \
-            -workspace ios/Runner.xcworkspace \
-            -scheme Runner \
-            -configuration Release \
-            -sdk iphoneos \
-            -derivedDataPath build/ios \
-            ONLY_ACTIVE_ARCH=NO \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="" \
-            DEVELOPMENT_TEAM=""
+          flutter build ios --release --no-codesign --no-pub
 
-          echo "--- Listing build products ---"
-          find build/ios/Build/Products -maxdepth 3 -type d | head -20
+          echo "--- Verifying build output ---"
+          ls -la build/ios/iphoneos/
+          echo "--- Info.plist check ---"
+          ls build/ios/iphoneos/Runner.app/Info.plist && echo "✅ Info.plist EXISTS" || echo "❌ MISSING"
       - name: Package IPA
         script: |
-          # Known path for xcodebuild build with -derivedDataPath
-          APP_PATH="build/ios/Build/Products/Release-iphoneos/Runner.app"
+          APP_PATH="build/ios/iphoneos/Runner.app"
 
           if [ ! -d "$APP_PATH" ]; then
-            echo "ERROR: Runner.app not found at expected path!"
-            echo "Searching all build outputs..."
-            find build/ios -name "Runner.app" -type d 2>/dev/null | head -10
+            echo "ERROR: Runner.app not found!"
+            find build -name "*.app" -type d 2>/dev/null | head -10
             exit 1
           fi
 
-          echo "✅ Runner.app found"
-          echo "Info.plist: $(ls $APP_PATH/Info.plist 2>/dev/null && echo EXISTS || echo MISSING)"
-
-          # Create IPA
           mkdir -p build/ios/Payload
           cp -r "$APP_PATH" build/ios/Payload/Runner.app
           cd build/ios
           zip -qr Rahel.ipa Payload
           rm -rf Payload
-          echo "✅ IPA created: $(ls -lh Rahel.ipa)"
+          ls -lh Rahel.ipa
+          echo "✅ Rahel.ipa ready"
     artifacts:
       - build/ios/Rahel.ipa
