@@ -22,12 +22,12 @@ workflows:
           flutter build ios --release --no-codesign --no-pub
 
           echo "--- Verifying build output ---"
-          ls -la build/ios/iphoneos/
+          ls -la build/ios/Release-iphoneos/
           echo "--- Info.plist check ---"
-          ls build/ios/iphoneos/Runner.app/Info.plist && echo "✅ Info.plist EXISTS" || echo "❌ MISSING"
+          ls build/ios/Release-iphoneos/Runner.app/Info.plist && echo "✅ Info.plist EXISTS" || echo "❌ MISSING"
       - name: Package IPA
         script: |
-          APP_PATH="build/ios/iphoneos/Runner.app"
+          APP_PATH="build/ios/Release-iphoneos/Runner.app"
 
           if [ ! -d "$APP_PATH" ]; then
             echo "ERROR: Runner.app not found!"
