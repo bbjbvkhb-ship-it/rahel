@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit.dart';
@@ -111,7 +112,9 @@ class DownloadController extends ChangeNotifier {
 
   DownloadController() {
     _loadHistory();
+    bg.FileDownloader().trackTasks();
   }
+
 
   void reset() {
     _status = DownloadStatus.idle;
@@ -265,8 +268,12 @@ class DownloadController extends ChangeNotifier {
 
       if (task.isAudio) {
         // Try to get native m4a stream to avoid FFmpeg conversion (youtube_explode uses 'mp4' for M4A containers)
-        final m4aStreams = manifest.audioOnly.where((s) => s.container.name == 'mp4' || s.container.name == 'm4a');
+        final m4aStreams = manifest.audioOnly.where((s) {
+          final name = s.container.name.toLowerCase();
+          return name == 'mp4' || name == 'm4a';
+        });
         if (m4aStreams.isNotEmpty) {
+
           final audioStreamInfo = m4aStreams.withHighestBitrate();
           final sizeStr = '${(audioStreamInfo.size.totalBytes / 1024 / 1024).toStringAsFixed(1)} MB';
           task.update(size: sizeStr);
@@ -344,8 +351,14 @@ class DownloadController extends ChangeNotifier {
           
           final taskId = await BackgroundTaskHelper.startBackgroundTask();
           try {
-            final session = await FFmpegKit.execute(ffmpegCmd);
+            final session = await FFmpegKit.execute(ffmpegCmd).timeout(
+              const Duration(seconds: 45),
+              onTimeout: () {
+                throw TimeoutException('استغرقت عملية تحويل الصوت وقتاً طويلاً');
+              },
+            );
             final returnCode = await session.getReturnCode();
+
 
             final tempFile = File(tempAudioPath);
             if (await tempFile.exists()) {
@@ -435,8 +448,14 @@ class DownloadController extends ChangeNotifier {
           
           final taskId = await BackgroundTaskHelper.startBackgroundTask();
           try {
-            final session = await FFmpegKit.execute(ffmpegCmd);
+            final session = await FFmpegKit.execute(ffmpegCmd).timeout(
+              const Duration(seconds: 60),
+              onTimeout: () {
+                throw TimeoutException('استغرقت عملية معالجة الفيديو وقتاً طويلاً');
+              },
+            );
             final returnCode = await session.getReturnCode();
+
 
             final tempVideoFile = File(tempVideoPath);
             final tempAudioFile = File(tempAudioPath);
@@ -571,10 +590,9 @@ class DownloadController extends ChangeNotifier {
       );
 
 
-      await bg.FileDownloader().trackTasks();
-
       final result = await bg.FileDownloader().download(
         bgTask,
+
         onProgress: (progress) {
           if (progress >= 0.0 && progress <= 1.0) {
             task.update(progress: progress);
@@ -637,10 +655,9 @@ class DownloadController extends ChangeNotifier {
     );
 
 
-    await bg.FileDownloader().trackTasks();
-
     final result = await bg.FileDownloader().download(
       bgTask,
+
       onProgress: (progress) {
         if (progress >= 0.0 && progress <= 1.0) {
           final bytesDownloaded = progress * streamInfo.size.totalBytes.toDouble();

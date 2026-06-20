@@ -569,12 +569,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
                   });
                 },
                 onChangeEnd: (value) {
-                  player.seek(Duration(milliseconds: value.round()));
+                  final targetDuration = Duration(milliseconds: value.round());
+                  player.seek(targetDuration);
                   setState(() {
+                    _syncPosition = targetDuration;
+                    _lastSyncTime = DateTime.now();
                     _isDragging = false;
                     _dragValue = null;
                   });
                 },
+
               ),
             ),
             Padding(
