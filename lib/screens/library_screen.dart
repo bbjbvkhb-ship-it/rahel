@@ -667,6 +667,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
     Color statusColor = const Color(0xff89ceff);
 
     switch (download.status) {
+      case DownloadStatus.queued:
+        statusText = 'في قائمة الانتظار: ${download.currentTitle}';
+        statusColor = const Color(0xffcbc3d7);
+        break;
       case DownloadStatus.analyzing:
         statusText = 'جاري تحليل الرابط...';
         break;
@@ -675,7 +679,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
         statusText = 'جاري تحميل: ${download.currentTitle} $pct';
         break;
       case DownloadStatus.converting:
-        statusText = 'جاري تحويل ومعالجة الصوت...';
+        statusText = 'جاري تحويل ومعالجة الملف...';
         statusColor = const Color(0xffd0bcff);
         break;
       case DownloadStatus.failed:
@@ -704,7 +708,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   textDirection: TextDirection.rtl,
                 ),
               ),
-              if (download.status == DownloadStatus.downloading || download.status == DownloadStatus.converting)
+              if (download.status == DownloadStatus.downloading ||
+                  download.status == DownloadStatus.converting ||
+                  download.status == DownloadStatus.analyzing)
                 const SizedBox(
                   width: 14,
                   height: 14,
@@ -715,12 +721,15 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 ),
             ],
           ),
-          if (download.status == DownloadStatus.downloading && download.progress > 0) ...[
+          if (download.status == DownloadStatus.downloading ||
+              download.status == DownloadStatus.converting) ...[
             const SizedBox(height: 6),
             ClipRRect(
               borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
-                value: download.progress,
+                value: (download.status == DownloadStatus.downloading && download.progress > 0)
+                    ? download.progress
+                    : null,
                 minHeight: 4,
                 backgroundColor: Colors.white10,
                 valueColor: AlwaysStoppedAnimation<Color>(statusColor),
