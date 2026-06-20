@@ -441,77 +441,120 @@ class _LibraryScreenState extends State<LibraryScreen> {
     );
   }
 
-  // Set Album
+  // Set Album and Year
   void _showAlbumDialog(BuildContext context, LocalMediaItem item, LibraryController libraryController) {
     final albumController = TextEditingController(text: item.album ?? '');
+    final yearController = TextEditingController(text: item.year ?? libraryController.albumYears[item.album] ?? '');
+    
     showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          backgroundColor: const Color(0xff171f33),
-          title: const Text('إضافة للألبوم', textDirection: TextDirection.rtl, style: TextStyle(color: Color(0xffdae2fd))),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('اختر ألبوماً أو اكتب اسماً جديداً:', style: TextStyle(color: Color(0xffcbc3d7), fontSize: 12), textDirection: TextDirection.rtl),
-              const SizedBox(height: 8),
-              TextField(
-                controller: albumController,
-                style: const TextStyle(color: Color(0xffdae2fd)),
-                decoration: const InputDecoration(
-                  hintText: 'اسم الألبوم...',
-                  hintStyle: TextStyle(color: Colors.white24),
-                  enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
-                  focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xffd0bcff))),
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xff171f33),
+              title: const Text('إضافة للألبوم والتحكم بالعام', textDirection: TextDirection.rtl, style: TextStyle(color: Color(0xffdae2fd))),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('اسم الألبوم:', style: TextStyle(color: Color(0xffcbc3d7), fontSize: 12), textDirection: TextDirection.rtl),
+                    const SizedBox(height: 4),
+                    TextField(
+                      controller: albumController,
+                      style: const TextStyle(color: Color(0xffdae2fd)),
+                      decoration: const InputDecoration(
+                        hintText: 'اسم الألبوم...',
+                        hintStyle: TextStyle(color: Colors.white24),
+                        enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+                        focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xffd0bcff))),
+                      ),
+                      textDirection: TextDirection.rtl,
+                      onChanged: (val) {
+                        final existingYear = libraryController.albumYears[val.trim()];
+                        if (existingYear != null) {
+                          yearController.text = existingYear;
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    const Text('العام / السنة:', style: TextStyle(color: Color(0xffcbc3d7), fontSize: 12), textDirection: TextDirection.rtl),
+                    const SizedBox(height: 4),
+                    TextField(
+                      controller: yearController,
+                      style: const TextStyle(color: Color(0xffdae2fd)),
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        hintText: 'مثال: 2026...',
+                        hintStyle: TextStyle(color: Colors.white24),
+                        enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+                        focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xffd0bcff))),
+                      ),
+                      textDirection: TextDirection.rtl,
+                    ),
+                    const SizedBox(height: 16),
+                    // Show existing albums list
+                    if (libraryController.albums.isNotEmpty) ...[
+                      const Text('الألبومات الحالية (انقر للاختيار):', style: TextStyle(color: Color(0xffcbc3d7), fontSize: 12), textDirection: TextDirection.rtl),
+                      const SizedBox(height: 6),
+                      Container(
+                        height: 100,
+                        width: double.maxFinite,
+                        decoration: BoxDecoration(
+                          color: const Color(0xff0b1326).withOpacity(0.3),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.white10),
+                        ),
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: libraryController.albums.length,
+                          itemBuilder: (context, idx) {
+                            final albumName = libraryController.albums[idx];
+                            final albumYear = libraryController.albumYears[albumName];
+                            final displayText = albumYear != null ? '$albumName ($albumYear)' : albumName;
+                            
+                            return ListTile(
+                              dense: true,
+                              title: Text(displayText, style: const TextStyle(color: Color(0xffdae2fd), fontSize: 12)),
+                              onTap: () {
+                                setState(() {
+                                  albumController.text = albumName;
+                                  if (albumYear != null) {
+                                    yearController.text = albumYear;
+                                  }
+                                });
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                    ]
+                  ],
                 ),
-                textDirection: TextDirection.rtl,
               ),
-              const SizedBox(height: 12),
-              // Show existing albums list
-              if (libraryController.albums.isNotEmpty) ...[
-                const Text('الألبومات الحالية:', style: TextStyle(color: Color(0xffcbc3d7), fontSize: 12), textDirection: TextDirection.rtl),
-                const SizedBox(height: 6),
-                SizedBox(
-                  height: 100,
-                  width: double.maxFinite,
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: libraryController.albums.length,
-                    itemBuilder: (context, idx) {
-                      final albumName = libraryController.albums[idx];
-                      return ListTile(
-                        dense: true,
-                        title: Text(albumName, style: const TextStyle(color: Color(0xffdae2fd))),
-                        onTap: () {
-                          albumController.text = albumName;
-                        },
-                      );
-                    },
-                  ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('إلغاء', style: TextStyle(color: Color(0xffcbc3d7))),
                 ),
-              ]
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('إلغاء', style: TextStyle(color: Color(0xffcbc3d7))),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xffd0bcff)),
-              onPressed: () {
-                libraryController.updateItemMetadata(
-                  item.id,
-                  title: item.title,
-                  artist: item.artist,
-                  album: albumController.text.trim().isEmpty ? null : albumController.text.trim(),
-                );
-                Navigator.pop(context);
-              },
-              child: const Text('تطبيق', style: TextStyle(color: Color(0xff0b1326))),
-            ),
-          ],
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xffd0bcff)),
+                  onPressed: () {
+                    libraryController.updateItemMetadata(
+                      item.id,
+                      title: item.title,
+                      artist: item.artist,
+                      album: albumController.text.trim().isEmpty ? null : albumController.text.trim(),
+                      year: yearController.text.trim().isEmpty ? null : yearController.text.trim(),
+                    );
+                    Navigator.pop(context);
+                  },
+                  child: const Text('تطبيق', style: TextStyle(color: Color(0xff0b1326))),
+                ),
+              ],
+            );
+          },
         );
       },
     );
@@ -767,48 +810,110 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   Widget _buildAlbumsHorizontalList(LibraryController controller) {
+    final selectedAlbum = controller.selectedAlbum;
+    
     return Container(
       height: 46,
       padding: const EdgeInsets.symmetric(vertical: 6),
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: controller.albums.length + 1,
-        itemBuilder: (context, index) {
-          if (index == 0) {
-            final isAllSelected = controller.selectedAlbum == null;
-            return Padding(
-              padding: const EdgeInsets.only(left: 8),
-              child: ChoiceChip(
-                label: const Text('كل الألبومات'),
-                selected: isAllSelected,
-                selectedColor: const Color(0xffd0bcff).withOpacity(0.2),
-                backgroundColor: const Color(0xff171f33),
-                labelStyle: TextStyle(
-                  color: isAllSelected ? const Color(0xffd0bcff) : const Color(0xffcbc3d7),
-                  fontSize: 12,
-                ),
-                onSelected: (_) => controller.setSelectedAlbum(null),
+      child: Row(
+        children: [
+          if (selectedAlbum != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 12, left: 4),
+              child: IconButton(
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                icon: const Icon(Icons.delete_sweep, color: Color(0xfffb7185), size: 22),
+                tooltip: 'حذف الألبوم المختار',
+                onPressed: () => _showDeleteAlbumDialog(context, selectedAlbum, controller),
               ),
-            );
-          }
-          final album = controller.albums[index - 1];
-          final isSelected = controller.selectedAlbum == album;
-          return Padding(
-            padding: const EdgeInsets.only(left: 8),
-            child: ChoiceChip(
-              label: Text(album),
-              selected: isSelected,
-              selectedColor: const Color(0xffd0bcff).withOpacity(0.2),
-              backgroundColor: const Color(0xff171f33),
-              labelStyle: TextStyle(
-                color: isSelected ? const Color(0xffd0bcff) : const Color(0xffcbc3d7),
-                fontSize: 12,
-              ),
-              onSelected: (_) => controller.setSelectedAlbum(album),
             ),
-          );
-        },
+          Expanded(
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              itemCount: controller.albums.length + 1,
+              itemBuilder: (context, index) {
+                if (index == 0) {
+                  final isAllSelected = controller.selectedAlbum == null;
+                  return Padding(
+                    padding: const EdgeInsets.only(left: 8),
+                    child: ChoiceChip(
+                      label: const Text('كل الألبومات'),
+                      selected: isAllSelected,
+                      selectedColor: const Color(0xffd0bcff).withOpacity(0.2),
+                      backgroundColor: const Color(0xff171f33),
+                      labelStyle: TextStyle(
+                        color: isAllSelected ? const Color(0xffd0bcff) : const Color(0xffcbc3d7),
+                        fontSize: 12,
+                      ),
+                      onSelected: (_) => controller.setSelectedAlbum(null),
+                    ),
+                  );
+                }
+                final album = controller.albums[index - 1];
+                final isSelected = controller.selectedAlbum == album;
+                
+                final albumYear = controller.albumYears[album];
+                final chipLabel = albumYear != null ? '$album • $albumYear' : album;
+
+                return Padding(
+                  padding: const EdgeInsets.only(left: 8),
+                  child: ChoiceChip(
+                    label: Text(chipLabel),
+                    selected: isSelected,
+                    selectedColor: const Color(0xffd0bcff).withOpacity(0.2),
+                    backgroundColor: const Color(0xff171f33),
+                    labelStyle: TextStyle(
+                      color: isSelected ? const Color(0xffd0bcff) : const Color(0xffcbc3d7),
+                      fontSize: 12,
+                    ),
+                    onSelected: (_) => controller.setSelectedAlbum(album),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeleteAlbumDialog(BuildContext context, String albumName, LibraryController controller) {
+    showDialog(
+      context: context,
+      builder: (context) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          backgroundColor: const Color(0xff171f33),
+          title: Text('حذف ألبوم "$albumName"', style: const TextStyle(color: Color(0xffdae2fd))),
+          content: const Text(
+            'اختر الإجراء الذي ترغب في اتخاذه:\n\n'
+            '1. إزالة الألبوم فقط: سيتم حذف تصنيف الألبوم من الأغاني مع إبقائها في مكتبتك.\n'
+            '2. حذف الألبوم والأغاني: سيتم حذف الألبوم وحذف جميع الأغاني التابعة له نهائياً من الجهاز.',
+            style: TextStyle(color: Color(0xffcbc3d7), fontSize: 13),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('إلغاء', style: TextStyle(color: Color(0xffcbc3d7))),
+            ),
+            TextButton(
+              onPressed: () {
+                controller.deleteAlbum(albumName);
+                Navigator.pop(context);
+              },
+              child: const Text('إزالة الألبوم فقط', style: TextStyle(color: Color(0xffcbc3d7))),
+            ),
+            TextButton(
+              onPressed: () {
+                controller.deleteAlbumWithSongs(albumName);
+                Navigator.pop(context);
+              },
+              child: const Text('حذف الألبوم والأغاني', style: TextStyle(color: Color(0xfffb7185), fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -936,7 +1041,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
-                              '💿 ${item.album}',
+                              item.year != null ? '💿 ${item.album} (${item.year})' : '💿 ${item.album}',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(color: Colors.white24, fontSize: 10),

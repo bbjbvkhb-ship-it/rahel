@@ -163,8 +163,75 @@ class LibraryController extends ChangeNotifier {
     }
   }
 
-  // Rename item title and/or artist
-  Future<void> updateItemMetadata(String id, {required String title, required String artist, String? album}) async {
+  // Clear album association from all songs in this album
+  Future<void> deleteAlbum(String albumName) async {
+    for (var i = 0; i < _items.length; i++) {
+      if (_items[i].album == albumName) {
+        _items[i] = LocalMediaItem(
+          id: _items[i].id,
+          title: _items[i].title,
+          artist: _items[i].artist,
+          durationSeconds: _items[i].durationSeconds,
+          filePath: _items[i].filePath,
+          thumbnailPath: _items[i].thumbnailPath,
+          isAudio: _items[i].isAudio,
+          addedDate: _items[i].addedDate,
+          album: null,
+          year: null,
+        );
+      }
+    }
+    if (_selectedAlbum == albumName) {
+      _selectedAlbum = null;
+    }
+    await saveLibrary();
+    notifyListeners();
+  }
+
+  // Delete album AND permanently delete all its songs from the disk
+  Future<void> deleteAlbumWithSongs(String albumName) async {
+    final songsToDelete = _items.where((item) => item.album == albumName).toList();
+    
+    // Remove from in-memory list
+    _items.removeWhere((item) => item.album == albumName);
+    
+    if (_selectedAlbum == albumName) {
+      _selectedAlbum = null;
+    }
+    
+    await saveLibrary();
+    notifyListeners();
+
+    // Delete files asynchronously from disk
+    for (var item in songsToDelete) {
+      try {
+        final mediaFile = await getMediaFile(item);
+        if (await mediaFile.exists()) {
+          await mediaFile.delete();
+        }
+        final thumbFile = await getThumbnailFile(item);
+        if (await thumbFile.exists() && !item.thumbnailPath.startsWith('assets/')) {
+          await thumbFile.delete();
+        }
+      } catch (e) {
+        if (kDebugMode) print('Error deleting album song files: $e');
+      }
+    }
+  }
+
+  // Get a map of album names to their respective years
+  Map<String, String> get albumYears {
+    final map = <String, String>{};
+    for (var item in _items) {
+      if (item.album != null && item.album!.trim().isNotEmpty && item.year != null && item.year!.trim().isNotEmpty) {
+        map[item.album!] = item.year!;
+      }
+    }
+    return map;
+  }
+
+  // Rename item title, artist, album, and year
+  Future<void> updateItemMetadata(String id, {required String title, required String artist, String? album, String? year}) async {
     final index = _items.indexWhere((i) => i.id == id);
     if (index != -1) {
       final oldItem = _items[index];
@@ -178,7 +245,29 @@ class LibraryController extends ChangeNotifier {
         isAudio: oldItem.isAudio,
         addedDate: oldItem.addedDate,
         album: album,
+        year: year ?? oldItem.year,
       );
+
+      // Propagate the year to all other songs in the same album to link the album and the year!
+      if (album != null && album.trim().isNotEmpty && year != null && year.trim().isNotEmpty) {
+        for (var i = 0; i < _items.length; i++) {
+          if (_items[i].album == album) {
+            _items[i] = LocalMediaItem(
+              id: _items[i].id,
+              title: _items[i].title,
+              artist: _items[i].artist,
+              durationSeconds: _items[i].durationSeconds,
+              filePath: _items[i].filePath,
+              thumbnailPath: _items[i].thumbnailPath,
+              isAudio: _items[i].isAudio,
+              addedDate: _items[i].addedDate,
+              album: album,
+              year: year,
+            );
+          }
+        }
+      }
+
       await saveLibrary();
       notifyListeners();
     }

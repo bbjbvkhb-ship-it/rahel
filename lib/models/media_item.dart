@@ -8,6 +8,7 @@ class LocalMediaItem {
   final bool isAudio;
   final DateTime addedDate;
   final String? album;
+  final String? year;
 
   LocalMediaItem({
     required this.id,
@@ -19,6 +20,7 @@ class LocalMediaItem {
     required this.isAudio,
     required this.addedDate,
     this.album,
+    this.year,
   });
 
   Map<String, dynamic> toJson() {
@@ -32,6 +34,7 @@ class LocalMediaItem {
       'isAudio': isAudio,
       'addedDate': addedDate.toIso8601String(),
       'album': album,
+      'year': year,
     };
   }
 
@@ -46,6 +49,7 @@ class LocalMediaItem {
       isAudio: json['isAudio'] as bool,
       addedDate: DateTime.parse(json['addedDate'] as String),
       album: json['album'] as String?,
+      year: json['year'] as String?,
     );
   }
 }
