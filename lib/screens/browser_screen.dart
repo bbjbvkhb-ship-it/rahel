@@ -124,7 +124,9 @@ class _BrowserScreenState extends State<BrowserScreen> {
 
   // Check if current URL is downloadable (YouTube Video)
   void _checkDownloadAvailability(String url) {
-    final isYoutubeVideo = url.contains('youtube.com/watch') || url.contains('youtu.be/');
+    final isYoutubeVideo = url.contains('youtube.com/watch') ||
+        url.contains('youtu.be/') ||
+        url.contains('youtube.com/shorts/');
     setState(() {
       _showDownloadFloatingBar = isYoutubeVideo;
     });
@@ -299,6 +301,16 @@ class _BrowserScreenState extends State<BrowserScreen> {
                             shouldOverrideUrlLoading: (controller, navigationAction) async {
                               // Allow all navigation
                               return NavigationActionPolicy.ALLOW;
+                            },
+                            onUpdateVisitedHistory: (controller, url, isReload) {
+                              // Catches YouTube SPA navigation (no full page reload)
+                              if (url != null) {
+                                setState(() {
+                                  _currentUrl = url.toString();
+                                  _urlController.text = _currentUrl;
+                                });
+                                _checkDownloadAvailability(_currentUrl);
+                              }
                             },
                             onLoadStart: (controller, url) {
                               if (url != null) {
