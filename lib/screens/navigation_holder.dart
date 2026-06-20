@@ -6,6 +6,7 @@ import 'library_screen.dart';
 import 'playlist_screen.dart';
 import 'browser_screen.dart';
 import 'player_screen.dart';
+import 'downloads_screen.dart';
 import 'settings_screen.dart';
 
 class NavigationHolder extends StatefulWidget {
@@ -30,18 +31,24 @@ class _NavigationHolderState extends State<NavigationHolder> {
     _screens = [
       LibraryScreen(
         audioHandler: widget.audioHandler,
-        onNavigateToPlayer: (idx) {
-          setState(() {
-            _currentIndex = idx;
-          });
+        onNavigateToPlayer: (_) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => PlayerScreen(audioHandler: widget.audioHandler),
+            ),
+          );
         },
       ),
       PlaylistScreen(
         audioHandler: widget.audioHandler,
-        onNavigateToPlayer: (idx) {
-          setState(() {
-            _currentIndex = idx;
-          });
+        onNavigateToPlayer: (_) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => PlayerScreen(audioHandler: widget.audioHandler),
+            ),
+          );
         },
       ),
       BrowserScreen(
@@ -51,9 +58,7 @@ class _NavigationHolderState extends State<NavigationHolder> {
           });
         },
       ),
-      PlayerScreen(
-        audioHandler: widget.audioHandler,
-      ),
+      const DownloadsScreen(),
       SettingsScreen(
         onNavigateToBrowserUrl: (idx, url) {
           setState(() {
@@ -77,13 +82,12 @@ class _NavigationHolderState extends State<NavigationHolder> {
           ),
 
           // Floating Mini-Player positioned just above the bottom navigation bar
-          if (_currentIndex != 3) // Hide on the Player screen itself
-            Positioned(
-              left: 12,
-              right: 12,
-              bottom: kBottomNavigationBarHeight + 20,
-              child: _buildMiniPlayer(),
-            ),
+          Positioned(
+            left: 12,
+            right: 12,
+            bottom: kBottomNavigationBarHeight + 20,
+            child: _buildMiniPlayer(),
+          ),
         ],
       ),
       bottomNavigationBar: _buildBottomNavigationBar(),
@@ -105,9 +109,12 @@ class _NavigationHolderState extends State<NavigationHolder> {
 
             return GestureDetector(
               onTap: () {
-                setState(() {
-                  _currentIndex = 3; // Open Player tab (index 3 now)
-                });
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => PlayerScreen(audioHandler: widget.audioHandler),
+                  ),
+                );
               },
               child: Dismissible(
                 key: const Key('mini-player-dismiss'),
@@ -273,9 +280,9 @@ class _NavigationHolderState extends State<NavigationHolder> {
             label: 'المتصفح',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.play_circle_outline),
-            activeIcon: Icon(Icons.play_circle_filled),
-            label: 'المشغل',
+            icon: Icon(Icons.download_for_offline_outlined),
+            activeIcon: Icon(Icons.download_for_offline),
+            label: 'التنزيلات',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.settings_outlined),

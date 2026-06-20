@@ -276,22 +276,13 @@ class DownloadController extends ChangeNotifier {
         _status = DownloadStatus.downloading;
         notifyListeners();
 
-        final tempFile = File(tempAudioPath);
-        final fileStream = tempFile.openWrite();
-        final stream = _yt.videos.streamsClient.get(audioStreamInfo);
-
-        double bytesDownloaded = 0.0;
-        final totalBytes = audioStreamInfo.size.totalBytes;
-
-        await for (final data in stream) {
-          fileStream.add(data);
-          bytesDownloaded += data.length;
-          final prog = bytesDownloaded / totalBytes;
-          task.update(progress: prog);
-          _progress = prog;
-          notifyListeners();
-        }
-        await fileStream.close();
+        await _downloadStreamToFile(
+          audioStreamInfo,
+          tempAudioPath,
+          task,
+          0.0,
+          audioStreamInfo.size.totalBytes.toDouble(),
+        );
 
         // Convert to MP3 using ffmpeg_kit
         task.update(status: DownloadStatus.converting, progress: 0.0);
@@ -310,6 +301,7 @@ class DownloadController extends ChangeNotifier {
         final session = await FFmpegKit.execute(ffmpegCmd);
         final returnCode = await session.getReturnCode();
 
+        final tempFile = File(tempAudioPath);
         if (await tempFile.exists()) {
           await tempFile.delete();
         }
@@ -365,31 +357,23 @@ class DownloadController extends ChangeNotifier {
           final tempAudioPath = p.join(downloadsDir.path, '${uniqueId}_temp_audio.webm');
 
           // Download video segment
-          double bytesDownloaded = 0.0;
-          final tempVideoFile = File(tempVideoPath);
-          final videoSink = tempVideoFile.openWrite();
-          await for (final chunk in _yt.videos.streamsClient.get(videoStream)) {
-            videoSink.add(chunk);
-            bytesDownloaded += chunk.length;
-            final prog = bytesDownloaded / totalBytes;
-            task.update(progress: prog);
-            _progress = prog;
-            notifyListeners();
-          }
-          await videoSink.close();
+          final totalBytesDouble = totalBytes.toDouble();
+          await _downloadStreamToFile(
+            videoStream,
+            tempVideoPath,
+            task,
+            0.0,
+            totalBytesDouble,
+          );
 
           // Download audio segment
-          final tempAudioFile = File(tempAudioPath);
-          final audioSink = tempAudioFile.openWrite();
-          await for (final chunk in _yt.videos.streamsClient.get(audioStream)) {
-            audioSink.add(chunk);
-            bytesDownloaded += chunk.length;
-            final prog = bytesDownloaded / totalBytes;
-            task.update(progress: prog);
-            _progress = prog;
-            notifyListeners();
-          }
-          await audioSink.close();
+          await _downloadStreamToFile(
+            audioStream,
+            tempAudioPath,
+            task,
+            videoStream.size.totalBytes.toDouble() / totalBytesDouble,
+            totalBytesDouble,
+          );
 
           // Mux video and audio via FFmpeg
           task.update(status: DownloadStatus.converting, progress: 0.0);
@@ -401,6 +385,8 @@ class DownloadController extends ChangeNotifier {
           final session = await FFmpegKit.execute(ffmpegCmd);
           final returnCode = await session.getReturnCode();
 
+          final tempVideoFile = File(tempVideoPath);
+          final tempAudioFile = File(tempAudioPath);
           if (await tempVideoFile.exists()) await tempVideoFile.delete();
           if (await tempAudioFile.exists()) await tempAudioFile.delete();
 
@@ -441,19 +427,13 @@ class DownloadController extends ChangeNotifier {
           _status = DownloadStatus.downloading;
           notifyListeners();
 
-          final fileStream = finalFile.openWrite();
-          double bytesDownloaded = 0.0;
-          final totalBytes = videoStream.size.totalBytes;
-
-          await for (final data in _yt.videos.streamsClient.get(videoStream)) {
-            fileStream.add(data);
-            bytesDownloaded += data.length;
-            final prog = bytesDownloaded / totalBytes;
-            task.update(progress: prog);
-            _progress = prog;
-            notifyListeners();
-          }
-          await fileStream.close();
+          await _downloadStreamToFile(
+            videoStream,
+            outputVideoPath,
+            task,
+            0.0,
+            videoStream.size.totalBytes.toDouble(),
+          );
 
           final mediaItem = LocalMediaItem(
             id: uniqueId,
@@ -578,6 +558,33 @@ class DownloadController extends ChangeNotifier {
       _status = DownloadStatus.failed;
       _moveToHistory(task);
     }
+  }
+
+  Future<void> _downloadStreamToFile(
+    StreamInfo streamInfo,
+    String outputPath,
+    DownloadTask task,
+    double startProgressOffset,
+    double totalBytesForProgress,
+  ) async {
+    final client = http.Client();
+    final request = http.Request('GET', streamInfo.url);
+    final response = await client.send(request);
+
+    final file = File(outputPath);
+    final fileSink = file.openWrite();
+
+    double bytesDownloaded = 0.0;
+    await for (final chunk in response.stream) {
+      fileSink.add(chunk);
+      bytesDownloaded += chunk.length;
+      final prog = startProgressOffset + (bytesDownloaded / totalBytesForProgress);
+      task.update(progress: prog.clamp(0.0, 1.0));
+      _progress = task.progress;
+      notifyListeners();
+    }
+    await fileSink.close();
+    client.close();
   }
 
   void _moveToHistory(DownloadTask task) {
