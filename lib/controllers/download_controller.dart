@@ -262,8 +262,8 @@ class DownloadController extends ChangeNotifier {
       }
 
       if (task.isAudio) {
-        // Try to get native m4a stream to avoid FFmpeg conversion
-        final m4aStreams = manifest.audioOnly.where((s) => s.container.name == 'm4a');
+        // Try to get native m4a stream to avoid FFmpeg conversion (youtube_explode uses 'mp4' for M4A containers)
+        final m4aStreams = manifest.audioOnly.where((s) => s.container.name == 'mp4' || s.container.name == 'm4a');
         if (m4aStreams.isNotEmpty) {
           final audioStreamInfo = m4aStreams.withHighestBitrate();
           final sizeStr = '${(audioStreamInfo.size.totalBytes / 1024 / 1024).toStringAsFixed(1)} MB';

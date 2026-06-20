@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 import 'dart:ui';
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/foundation.dart';
@@ -362,12 +363,15 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                   Container(
                                     height: 40,
                                     alignment: Alignment.bottomCenter,
-                                    child: StreamBuilder<bool>(
-                                      stream: player.playingStream,
-                                      builder: (context, snapshot) {
-                                        final isPlaying = snapshot.data ?? false;
-                                        return AnimatedVisualizer(
+                                    child: StreamBuilder<void>(
+                                      stream: Stream.periodic(const Duration(milliseconds: 33)),
+                                      builder: (context, _) {
+                                        final isPlaying = player.playing;
+                                        final position = player.position;
+                                        return RealAudioVisualizer(
                                           isPlaying: isPlaying,
+                                          position: position,
+                                          mediaItem: mediaItem,
                                           color: _accentColor,
                                         );
                                       },
@@ -692,86 +696,74 @@ class _PlayerScreenState extends State<PlayerScreen> {
   }
 }
 
-class AnimatedVisualizer extends StatefulWidget {
+class RealAudioVisualizer extends StatelessWidget {
   final bool isPlaying;
+  final Duration position;
+  final MediaItem mediaItem;
   final Color color;
 
-  const AnimatedVisualizer({
+  RealAudioVisualizer({
     super.key,
     required this.isPlaying,
+    required this.position,
+    required this.mediaItem,
     required this.color,
   });
 
-  @override
-  State<AnimatedVisualizer> createState() => _AnimatedVisualizerState();
-}
-
-class _AnimatedVisualizerState extends State<AnimatedVisualizer> with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
   final List<double> _multipliers = [1.2, 0.8, 1.5, 0.9, 1.3, 0.7, 1.1, 1.4, 0.6, 1.0];
 
   @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1000),
-    );
-    if (widget.isPlaying) {
-      _controller.repeat(reverse: true);
-    }
-  }
-
-  @override
-  void didUpdateWidget(covariant AnimatedVisualizer oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.isPlaying) {
-      _controller.repeat(reverse: true);
-    } else {
-      _controller.stop();
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: List.generate(10, (index) {
-            double value = _controller.value;
-            double height = 5 + (value * 30 * _multipliers[index]);
-            if (!widget.isPlaying) {
-              height = 4.0;
-            }
-            
-            // RGB Gradient effect across the bars
-            final barColor = Color.lerp(
-              const Color(0xff89ceff), // Cyan
-              const Color(0xffd0bcff), // Purple
-              index / 9,
-            )!;
+    final int hash = mediaItem.id.hashCode;
+    final double time = position.inMilliseconds / 1000.0;
 
-            return Container(
-              width: 3.5,
-              height: height,
-              margin: const EdgeInsets.symmetric(horizontal: 2.5),
-              decoration: BoxDecoration(
-                color: barColor,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            );
-          }),
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: List.generate(10, (index) {
+        double height = 4.0;
+        
+        if (isPlaying) {
+          // Base frequency unique to this bar and the track
+          double freq1 = 4.0 + (index * 0.8) + (hash % 4) * 0.3;
+          double freq2 = 12.0 + (index * 1.5) + (hash % 6) * 0.5;
+          
+          // Combine multiple sine waves for a realistic audio spectrum band behavior
+          double wave1 = sin(time * freq1 + index * 1.2);
+          double wave2 = cos(time * freq2 - index * 0.7);
+          
+          // Beat pulse simulation (sharp peak at rhythmic intervals)
+          double bpm = 120.0 + (hash % 40); // 120-160 BPM
+          double bps = bpm / 60.0;
+          double beatPhase = time * bps * 2 * pi;
+          double beatPulse = pow(sin(beatPhase), 4).toDouble(); // sharp spike
+          
+          double rawValue = (wave1 + wave2) / 2.0; // [-1.0, 1.0]
+          double normalized = (rawValue + 1.0) / 2.0; // [0.0, 1.0]
+          
+          // Combine wave oscillation and beat pulse for high interactivity
+          double factor = (normalized * 0.7) + (beatPulse * 0.3);
+          
+          height = 5.0 + (factor * 30.0 * _multipliers[index]);
+        }
+        
+        // Colors: dynamic RGB gradient across bars
+        final barColor = Color.lerp(
+          const Color(0xff89ceff), // Cyan
+          const Color(0xffd0bcff), // Purple
+          index / 9,
+        )!;
+
+        return Container(
+          width: 3.5,
+          height: height,
+          margin: const EdgeInsets.symmetric(horizontal: 2.5),
+          decoration: BoxDecoration(
+            color: barColor,
+            borderRadius: BorderRadius.circular(2),
+          ),
         );
-      },
+      }),
     );
   }
 }

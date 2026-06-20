@@ -1,4 +1,5 @@
 import 'package:audio_service/audio_service.dart';
+import 'package:audio_session/audio_session.dart';
 import 'package:just_audio/just_audio.dart';
 
 Future<AudioHandler> initAudioService() async {
@@ -23,6 +24,11 @@ class MyAudioHandler extends BaseAudioHandler with QueueHandler, SeekHandler {
   void _init() {
     // Route player event streams to the AudioService client
     _player.playbackEventStream.map(_transformEvent).pipe(playbackState);
+
+    // Configure AudioSession for background music playback
+    AudioSession.instance.then((session) {
+      session.configure(const AudioSessionConfiguration.music());
+    });
 
     // Watch current source duration and item adjustments
     _player.currentIndexStream.listen((index) {
