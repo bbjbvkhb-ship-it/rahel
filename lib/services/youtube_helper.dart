@@ -1,0 +1,40 @@
+String? extractYoutubeVideoId(String url) {
+  url = url.trim();
+  if (url.isEmpty) return null;
+
+  // Pattern to find 11 character video ID
+  // It handles:
+  // - youtube.com/watch?v=ID
+  // - youtube.com/embed/ID
+  // - youtube.com/shorts/ID
+  // - youtu.be/ID
+  // - music.youtube.com/watch?v=ID
+  final regExp = RegExp(
+    r'^.*(youtu.be\/|v\/|u\/\w\/|embed\/|shorts\/|watch\?v=|\&v=)([^#\&\?]*).*',
+    caseSensitive: false,
+    multiLine: false,
+  );
+
+  final match = regExp.firstMatch(url);
+  if (match != null && match.groupCount >= 2) {
+    final id = match.group(2);
+    if (id != null && id.length == 11) {
+      return id;
+    }
+  }
+
+  // Fallback RegExp to search for any 11-character ID after watch?v= or shorts/ or youtu.be/
+  final watchReg = RegExp(r'[?&]v=([^&#\?]+)');
+  final watchMatch = watchReg.firstMatch(url);
+  if (watchMatch != null && watchMatch.group(1)?.length == 11) {
+    return watchMatch.group(1);
+  }
+
+  final pathReg = RegExp(r'(shorts\/|embed\/|v\/|youtu.be\/)([^&#\?\s]+)');
+  final pathMatch = pathReg.firstMatch(url);
+  if (pathMatch != null && pathMatch.group(2)?.length == 11) {
+    return pathMatch.group(2);
+  }
+
+  return null;
+}

@@ -12,6 +12,8 @@ import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 import 'package:background_downloader/background_downloader.dart' as bg;
 import '../models/media_item.dart';
 import 'library_controller.dart';
+import '../services/youtube_helper.dart';
+
 
 enum DownloadStatus { idle, queued, analyzing, downloading, converting, completed, failed }
 
@@ -225,14 +227,11 @@ class DownloadController extends ChangeNotifier {
       }
 
       // 1. Analyze video details
-      Video video;
-      try {
-        video = await _yt.videos.get(VideoId(cleanUrl));
-      } catch (e) {
-        final idStr = VideoId.parseVideoId(cleanUrl) ?? '';
-        if (idStr.isEmpty) throw Exception('لم نتمكن من التعرف على هذا الرابط');
-        video = await _yt.videos.get(VideoId(idStr));
-      }
+      final videoId = extractYoutubeVideoId(cleanUrl);
+      if (videoId == null) throw Exception('لم نتمكن من التعرف على هذا الرابط');
+      
+      final video = await _yt.videos.get(VideoId(videoId));
+
 
       task.update(status: DownloadStatus.analyzing, title: video.title);
       

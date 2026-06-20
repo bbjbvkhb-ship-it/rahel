@@ -462,7 +462,12 @@ class _BrowserScreenState extends State<BrowserScreen> {
                                       ),
                                       icon: const Icon(Icons.download_done, size: 16, color: Color(0xff0b1326)),
                                       label: const Text('تنزيل متميز', style: TextStyle(color: Color(0xff0b1326), fontSize: 12, fontWeight: FontWeight.bold)),
-                                      onPressed: () => _showSmartDownloadSheet(_currentUrl),
+                                      onPressed: () async {
+                                        final webUrl = await _webViewController?.getUrl();
+                                        final urlString = webUrl?.toString() ?? _currentUrl;
+                                        _showSmartDownloadSheet(urlString);
+                                      },
+
                                     )
                                   ],
                                 ),

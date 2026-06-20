@@ -4,6 +4,7 @@ import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 import 'package:just_audio/just_audio.dart';
 import '../controllers/download_controller.dart';
 import '../controllers/library_controller.dart';
+import '../services/youtube_helper.dart';
 
 class SmartDownloadSheet extends StatefulWidget {
   final String url;
@@ -40,14 +41,10 @@ class _SmartDownloadSheetState extends State<SmartDownloadSheet> {
   Future<void> _analyzeVideo() async {
     try {
       final cleanUrl = widget.url.trim();
-      Video video;
-      try {
-        video = await _yt.videos.get(VideoId(cleanUrl));
-      } catch (e) {
-        final idStr = VideoId.parseVideoId(cleanUrl) ?? '';
-        if (idStr.isEmpty) throw Exception('لم نتمكن من التعرف على الرابط');
-        video = await _yt.videos.get(VideoId(idStr));
-      }
+      final videoId = extractYoutubeVideoId(cleanUrl);
+      if (videoId == null) throw Exception('لم نتمكن من التعرف على الرابط');
+      
+      final video = await _yt.videos.get(VideoId(videoId));
 
       if (mounted) {
         setState(() {
@@ -64,6 +61,7 @@ class _SmartDownloadSheetState extends State<SmartDownloadSheet> {
       }
     }
   }
+
 
   Future<void> _togglePreview() async {
     if (_video == null) return;
