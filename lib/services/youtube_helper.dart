@@ -38,3 +38,20 @@ String? extractYoutubeVideoId(String url) {
 
   return null;
 }
+
+Future<T> retryYoutubeCall<T>(Future<T> Function() call, {int maxRetries = 3}) async {
+  int attempts = 0;
+  while (true) {
+    attempts++;
+    try {
+      return await call();
+    } catch (e) {
+      if (attempts >= maxRetries) {
+        rethrow;
+      }
+      // Wait before retrying (exponential backoff: 300ms, 600ms, 900ms...)
+      await Future.delayed(Duration(milliseconds: 300 * attempts));
+    }
+  }
+}
+

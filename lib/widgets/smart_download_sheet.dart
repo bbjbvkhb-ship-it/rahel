@@ -44,7 +44,7 @@ class _SmartDownloadSheetState extends State<SmartDownloadSheet> {
       final videoId = extractYoutubeVideoId(cleanUrl);
       if (videoId == null) throw Exception('لم نتمكن من التعرف على الرابط');
       
-      final video = await _yt.videos.get(VideoId(videoId));
+      final video = await retryYoutubeCall(() => _yt.videos.get(VideoId(videoId)));
 
       if (mounted) {
         setState(() {
@@ -61,6 +61,7 @@ class _SmartDownloadSheetState extends State<SmartDownloadSheet> {
       }
     }
   }
+
 
 
   Future<void> _togglePreview() async {
@@ -80,10 +81,11 @@ class _SmartDownloadSheetState extends State<SmartDownloadSheet> {
 
       try {
         if (_previewPlayer.duration == null) {
-          final manifest = await _yt.videos.streamsClient.getManifest(_video!.id);
+          final manifest = await retryYoutubeCall(() => _yt.videos.streamsClient.getManifest(_video!.id));
           final audioStream = manifest.audioOnly.withHighestBitrate();
           await _previewPlayer.setUrl(audioStream.url.toString());
         }
+
         
         _previewPlayer.play();
         _previewPlayer.playerStateStream.listen((state) {

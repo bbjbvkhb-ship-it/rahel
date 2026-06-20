@@ -230,8 +230,7 @@ class DownloadController extends ChangeNotifier {
       final videoId = extractYoutubeVideoId(cleanUrl);
       if (videoId == null) throw Exception('لم نتمكن من التعرف على هذا الرابط');
       
-      final video = await _yt.videos.get(VideoId(videoId));
-
+      final video = await retryYoutubeCall(() => _yt.videos.get(VideoId(videoId)));
 
       task.update(status: DownloadStatus.analyzing, title: video.title);
       
@@ -241,7 +240,8 @@ class DownloadController extends ChangeNotifier {
       notifyListeners();
 
       // Get manifest
-      final manifest = await _yt.videos.streamsClient.getManifest(video.id);
+      final manifest = await retryYoutubeCall(() => _yt.videos.streamsClient.getManifest(video.id));
+
 
       final appDir = await getApplicationDocumentsDirectory();
       final downloadsDir = Directory(p.join(appDir.path, 'downloads'));
