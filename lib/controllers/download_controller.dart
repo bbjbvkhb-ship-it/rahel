@@ -108,7 +108,7 @@ class DownloadController extends ChangeNotifier {
       if (isAudio) {
         // Audio conversion path: Get audio-only stream and convert to mp3 via FFmpeg
         final audioStreamInfo = manifest.audioOnly.withHighestBitrate();
-        _downloadSize = '${(audioStreamInfo.size.megaBytes).toStringAsFixed(1)} MB';
+        _downloadSize = '${(audioStreamInfo.size.totalBytes / 1024 / 1024).toStringAsFixed(1)} MB';
         
         final tempAudioPath = p.join(downloadsDir.path, '${uniqueId}_temp.webm');
         final outputAudioPath = p.join(downloadsDir.path, '$uniqueId.mp3');
@@ -122,7 +122,7 @@ class DownloadController extends ChangeNotifier {
         final stream = _yt.videos.streamsClient.get(audioStreamInfo);
 
         double bytesDownloaded = 0.0;
-        final totalBytes = audioStreamInfo.size.bytes;
+        final totalBytes = audioStreamInfo.size.totalBytes;
 
         await for (final data in stream) {
           fileStream.add(data);
@@ -176,8 +176,8 @@ class DownloadController extends ChangeNotifier {
       } else {
         // Video path: Download video with highest quality (muxed or video+audio combined)
         // For simplicity and quick execution, download a muxed stream (video + audio)
-        final videoStreamInfo = manifest.muxed.withHighestVideoQuality();
-        _downloadSize = '${(videoStreamInfo.size.megaBytes).toStringAsFixed(1)} MB';
+        final videoStreamInfo = manifest.muxed.sortByVideoQuality().last;
+        _downloadSize = '${(videoStreamInfo.size.totalBytes / 1024 / 1024).toStringAsFixed(1)} MB';
 
         final outputVideoPath = p.join(downloadsDir.path, '$uniqueId.mp4');
 
@@ -193,7 +193,7 @@ class DownloadController extends ChangeNotifier {
         final stream = _yt.videos.streamsClient.get(videoStreamInfo);
 
         double bytesDownloaded = 0.0;
-        final totalBytes = videoStreamInfo.size.bytes;
+        final totalBytes = videoStreamInfo.size.totalBytes;
 
         await for (final data in stream) {
           fileStream.add(data);
