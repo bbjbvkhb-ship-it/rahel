@@ -17,24 +17,57 @@ workflows:
         script: |
           flutter config --no-enable-swift-package-manager
           flutter pub get
+
       - name: Build iOS App (unsigned)
         script: |
           flutter build ios --release --no-codesign --no-pub
 
-          echo "--- Verifying build output ---"
-          ls -la build/ios/Release-iphoneos/
-          echo "--- Info.plist check ---"
-          ls build/ios/Release-iphoneos/Runner.app/Info.plist && echo "✅ Info.plist EXISTS" || echo "❌ MISSING"
+          echo "=== All .app locations ==="
+          find build -name "*.app" -type d 2>/dev/null
+
+          echo "=== Contents of Release-iphoneos/Runner.app (first 2 levels) ==="
+          find build/ios/Release-iphoneos/Runner.app -maxdepth 2 | sort 2>/dev/null || echo "Not found at this path"
+
       - name: Package IPA
         script: |
-          APP_PATH="build/ios/Release-iphoneos/Runner.app"
+          # Find the app wherever Flutter put it
+          APP_PATH=$(find build -name "Runner.app" -type d | grep -v "PlugIns\|Watch\|Tests" | head -1)
 
-          if [ ! -d "$APP_PATH" ]; then
-            echo "ERROR: Runner.app not found!"
-            find build -name "*.app" -type d 2>/dev/null | head -10
+          if [ -z "$APP_PATH" ] || [ ! -d "$APP_PATH" ]; then
+            echo "ERROR: Runner.app not found anywhere!"
             exit 1
           fi
 
+          echo "✅ Using app at: $APP_PATH"
+          echo "=== App bundle contents ==="
+          ls -la "$APP_PATH/"
+
+          # --- Inject Info.plist if missing ---
+          if [ ! -f "$APP_PATH/Info.plist" ]; then
+            echo "⚠️  Info.plist MISSING — injecting from source..."
+
+            FLUTTER_BUILD_NAME=$(grep "^FLUTTER_BUILD_NAME=" ios/Flutter/Generated.xcconfig | cut -d= -f2 | tr -d '\r\n')
+            FLUTTER_BUILD_NUMBER=$(grep "^FLUTTER_BUILD_NUMBER=" ios/Flutter/Generated.xcconfig | cut -d= -f2 | tr -d '\r\n')
+            [ -z "$FLUTTER_BUILD_NAME" ]   && FLUTTER_BUILD_NAME="1.0.0"
+            [ -z "$FLUTTER_BUILD_NUMBER" ] && FLUTTER_BUILD_NUMBER="1"
+
+            sed \
+              -e "s/\$(DEVELOPMENT_LANGUAGE)/en/g" \
+              -e "s/\$(EXECUTABLE_NAME)/Runner/g" \
+              -e "s/\$(PRODUCT_BUNDLE_IDENTIFIER)/com.bbjbvkhbshipit.rahel/g" \
+              -e "s/\$(FLUTTER_BUILD_NAME)/$FLUTTER_BUILD_NAME/g" \
+              -e "s/\$(FLUTTER_BUILD_NUMBER)/$FLUTTER_BUILD_NUMBER/g" \
+              ios/Runner/Info.plist > "$APP_PATH/Info.plist"
+
+            echo "✅ Info.plist injected with build: $FLUTTER_BUILD_NAME ($FLUTTER_BUILD_NUMBER)"
+          else
+            echo "✅ Info.plist already present"
+          fi
+
+          echo "=== Final Info.plist preview ==="
+          head -25 "$APP_PATH/Info.plist"
+
+          # --- Create IPA ---
           mkdir -p build/ios/Payload
           cp -r "$APP_PATH" build/ios/Payload/Runner.app
           cd build/ios
@@ -42,5 +75,6 @@ workflows:
           rm -rf Payload
           ls -lh Rahel.ipa
           echo "✅ Rahel.ipa ready"
+
     artifacts:
       - build/ios/Rahel.ipa
