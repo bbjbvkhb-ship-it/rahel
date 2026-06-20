@@ -346,7 +346,7 @@ class DownloadController extends ChangeNotifier {
 
         if (task.quality == '1080p') {
           // Download 1080p video stream + highest audio stream, then merge them
-          final videoOnlyStreams = manifest.videoOnly.where((s) => s.videoQuality.label == '1080p');
+          final videoOnlyStreams = manifest.videoOnly.where((s) => s.videoQuality == VideoQuality.high1080);
           final videoStream = videoOnlyStreams.isNotEmpty 
               ? videoOnlyStreams.first 
               : manifest.videoOnly.sortByVideoQuality().last;
@@ -426,7 +426,7 @@ class DownloadController extends ChangeNotifier {
           }
         } else {
           // Download 720p or lower muxed stream
-          final videoStreams = manifest.muxed.where((s) => s.videoQuality.label == '720p');
+          final videoStreams = manifest.muxed.where((s) => s.videoQuality == VideoQuality.high720);
           final videoStream = videoStreams.isNotEmpty
               ? videoStreams.first
               : (manifest.muxed.sortByVideoQuality().isNotEmpty 
