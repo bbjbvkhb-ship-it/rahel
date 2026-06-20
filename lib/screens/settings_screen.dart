@@ -129,7 +129,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text(
-                              'أحمد محمد',
+                              'حيدر الربيعي',
                               style: TextStyle(
                                 color: Color(0xffdae2fd),
                                 fontSize: 18,
