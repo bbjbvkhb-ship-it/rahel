@@ -3,10 +3,12 @@ import 'dart:io';
 import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit.dart';
 import 'package:ffmpeg_kit_flutter_new/return_code.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
+import 'package:background_downloader/background_downloader.dart' as bg;
 import '../models/media_item.dart';
 import 'library_controller.dart';
 
@@ -339,35 +341,41 @@ class DownloadController extends ChangeNotifier {
           // Apply quality encoding
           final bitrate = task.quality == '128k' ? '128k' : '320k';
           final ffmpegCmd = '-y -i "$tempAudioPath" -b:a $bitrate -vn "$outputAudioPath"';
-          final session = await FFmpegKit.execute(ffmpegCmd);
-          final returnCode = await session.getReturnCode();
+          
+          final taskId = await BackgroundTaskHelper.startBackgroundTask();
+          try {
+            final session = await FFmpegKit.execute(ffmpegCmd);
+            final returnCode = await session.getReturnCode();
 
-          final tempFile = File(tempAudioPath);
-          if (await tempFile.exists()) {
-            await tempFile.delete();
-          }
+            final tempFile = File(tempAudioPath);
+            if (await tempFile.exists()) {
+              await tempFile.delete();
+            }
 
-          if (ReturnCode.isSuccess(returnCode)) {
-            // Add to Library
-            final mediaItem = LocalMediaItem(
-              id: uniqueId,
-              title: video.title,
-              artist: video.author,
-              durationSeconds: video.duration?.inSeconds ?? 0,
-              filePath: p.join('downloads', '$uniqueId.mp3'),
-              thumbnailPath: relThumbnailPath,
-              isAudio: true,
-              addedDate: DateTime.now(),
-            );
-            await libraryController.addItem(mediaItem);
+            if (ReturnCode.isSuccess(returnCode)) {
+              // Add to Library
+              final mediaItem = LocalMediaItem(
+                id: uniqueId,
+                title: video.title,
+                artist: video.author,
+                durationSeconds: video.duration?.inSeconds ?? 0,
+                filePath: p.join('downloads', '$uniqueId.mp3'),
+                thumbnailPath: relThumbnailPath,
+                isAudio: true,
+                addedDate: DateTime.now(),
+              );
+              await libraryController.addItem(mediaItem);
 
-            task.update(status: DownloadStatus.completed, progress: 1.0);
-            _status = DownloadStatus.completed;
-            _progress = 1.0;
-            _moveToHistory(task);
-          } else {
-            final failStackTrace = await session.getFailStackTrace();
-            throw Exception('فشل تحويل الملف الصوتي: $failStackTrace');
+              task.update(status: DownloadStatus.completed, progress: 1.0);
+              _status = DownloadStatus.completed;
+              _progress = 1.0;
+              _moveToHistory(task);
+            } else {
+              final failStackTrace = await session.getFailStackTrace();
+              throw Exception('فشل تحويل الملف الصوتي: $failStackTrace');
+            }
+          } finally {
+            await BackgroundTaskHelper.endBackgroundTask(taskId);
           }
         }
       } else {
@@ -424,33 +432,39 @@ class DownloadController extends ChangeNotifier {
           notifyListeners();
 
           final ffmpegCmd = '-y -i "$tempVideoPath" -i "$tempAudioPath" -c:v copy -c:a aac "$outputVideoPath"';
-          final session = await FFmpegKit.execute(ffmpegCmd);
-          final returnCode = await session.getReturnCode();
+          
+          final taskId = await BackgroundTaskHelper.startBackgroundTask();
+          try {
+            final session = await FFmpegKit.execute(ffmpegCmd);
+            final returnCode = await session.getReturnCode();
 
-          final tempVideoFile = File(tempVideoPath);
-          final tempAudioFile = File(tempAudioPath);
-          if (await tempVideoFile.exists()) await tempVideoFile.delete();
-          if (await tempAudioFile.exists()) await tempAudioFile.delete();
+            final tempVideoFile = File(tempVideoPath);
+            final tempAudioFile = File(tempAudioPath);
+            if (await tempVideoFile.exists()) await tempVideoFile.delete();
+            if (await tempAudioFile.exists()) await tempAudioFile.delete();
 
-          if (ReturnCode.isSuccess(returnCode)) {
-            final mediaItem = LocalMediaItem(
-              id: uniqueId,
-              title: video.title,
-              artist: video.author,
-              durationSeconds: video.duration?.inSeconds ?? 0,
-              filePath: p.join('downloads', '$uniqueId.mp4'),
-              thumbnailPath: relThumbnailPath,
-              isAudio: false,
-              addedDate: DateTime.now(),
-            );
-            await libraryController.addItem(mediaItem);
+            if (ReturnCode.isSuccess(returnCode)) {
+              final mediaItem = LocalMediaItem(
+                id: uniqueId,
+                title: video.title,
+                artist: video.author,
+                durationSeconds: video.duration?.inSeconds ?? 0,
+                filePath: p.join('downloads', '$uniqueId.mp4'),
+                thumbnailPath: relThumbnailPath,
+                isAudio: false,
+                addedDate: DateTime.now(),
+              );
+              await libraryController.addItem(mediaItem);
 
-            task.update(status: DownloadStatus.completed, progress: 1.0);
-            _status = DownloadStatus.completed;
-            _progress = 1.0;
-            _moveToHistory(task);
-          } else {
-            throw Exception('فشل دمج الصوت مع الفيديو بدقة 1080p');
+              task.update(status: DownloadStatus.completed, progress: 1.0);
+              _status = DownloadStatus.completed;
+              _progress = 1.0;
+              _moveToHistory(task);
+            } else {
+              throw Exception('فشل دمج الصوت مع الفيديو بدقة 1080p');
+            }
+          } finally {
+            await BackgroundTaskHelper.endBackgroundTask(taskId);
           }
         } else {
           // Download 720p or lower muxed stream
@@ -541,39 +555,42 @@ class DownloadController extends ChangeNotifier {
 
       final uniqueId = DateTime.now().millisecondsSinceEpoch.toString();
       final finalExtension = extension.isNotEmpty ? extension : (task.isAudio ? '.mp3' : '.mp4');
-      final outputFilePath = p.join(downloadsDir.path, '$uniqueId$finalExtension');
+      final outputFilename = '$uniqueId$finalExtension';
 
       task.update(status: DownloadStatus.downloading);
       _status = DownloadStatus.downloading;
       notifyListeners();
 
-      final client = http.Client();
-      final request = http.Request('GET', uri);
-      final responseStream = await client.send(request);
+      final bgTask = bg.DownloadTask(
+        url: task.url,
+        filename: outputFilename,
+        baseDirectory: bg.BaseDirectory.applicationDocuments,
+        directory: 'downloads',
+        updates: bg.Updates.statusAndProgress,
+        retries: 3,
+      );
 
-      if (responseStream.statusCode != 200) {
-        throw Exception('رمز الحالة ${responseStream.statusCode}');
-      }
 
-      final file = File(outputFilePath);
-      final fileSink = file.openWrite();
-      
-      int bytesDownloaded = 0;
-      await for (final chunk in responseStream.stream) {
-        fileSink.add(chunk);
-        bytesDownloaded += chunk.length;
-        if (totalBytes > 0) {
-          final prog = bytesDownloaded / totalBytes;
-          task.update(progress: prog);
-          _progress = prog;
-        } else {
-          task.update(progress: -1.0);
-          _progress = -1.0;
-        }
-        notifyListeners();
+      await bg.FileDownloader().trackTasks();
+
+      final result = await bg.FileDownloader().download(
+        bgTask,
+        onProgress: (progress) {
+          if (progress >= 0.0 && progress <= 1.0) {
+            task.update(progress: progress);
+            _progress = progress;
+            notifyListeners();
+          } else {
+            task.update(progress: -1.0);
+            _progress = -1.0;
+            notifyListeners();
+          }
+        },
+      );
+
+      if (result.status != bg.TaskStatus.complete) {
+        throw Exception('فشل تحميل الملف المباشر: ${result.status.name}');
       }
-      await fileSink.close();
-      client.close();
 
       // Add to Library
       final mediaItem = LocalMediaItem(
@@ -581,7 +598,7 @@ class DownloadController extends ChangeNotifier {
         title: title,
         artist: uri.host,
         durationSeconds: 0,
-        filePath: p.join('downloads', '$uniqueId$finalExtension'),
+        filePath: p.join('downloads', outputFilename),
         thumbnailPath: 'assets/default_thumb.png',
         isAudio: task.isAudio,
         addedDate: DateTime.now(),
@@ -609,24 +626,35 @@ class DownloadController extends ChangeNotifier {
     double startProgressOffset,
     double totalBytesForProgress,
   ) async {
-    final client = http.Client();
-    final request = http.Request('GET', streamInfo.url);
-    final response = await client.send(request);
+    final filename = p.basename(outputPath);
+    final bgTask = bg.DownloadTask(
+      url: streamInfo.url.toString(),
+      filename: filename,
+      baseDirectory: bg.BaseDirectory.applicationDocuments,
+      directory: 'downloads',
+      updates: bg.Updates.statusAndProgress,
+      retries: 3,
+    );
 
-    final file = File(outputPath);
-    final fileSink = file.openWrite();
 
-    double bytesDownloaded = 0.0;
-    await for (final chunk in response.stream) {
-      fileSink.add(chunk);
-      bytesDownloaded += chunk.length;
-      final prog = startProgressOffset + (bytesDownloaded / totalBytesForProgress);
-      task.update(progress: prog.clamp(0.0, 1.0));
-      _progress = task.progress;
-      notifyListeners();
+    await bg.FileDownloader().trackTasks();
+
+    final result = await bg.FileDownloader().download(
+      bgTask,
+      onProgress: (progress) {
+        if (progress >= 0.0 && progress <= 1.0) {
+          final bytesDownloaded = progress * streamInfo.size.totalBytes.toDouble();
+          final prog = startProgressOffset + (bytesDownloaded / totalBytesForProgress);
+          task.update(progress: prog.clamp(0.0, 1.0));
+          _progress = task.progress;
+          notifyListeners();
+        }
+      },
+    );
+
+    if (result.status != bg.TaskStatus.complete) {
+      throw Exception('فشل تحميل ملف البث: ${result.status.name}');
     }
-    await fileSink.close();
-    client.close();
   }
 
   void _moveToHistory(DownloadTask task) {
@@ -641,3 +669,28 @@ class DownloadController extends ChangeNotifier {
     super.dispose();
   }
 }
+
+class BackgroundTaskHelper {
+  static const _channel = MethodChannel('com.rahel.app/background_task');
+
+  static Future<int> startBackgroundTask() async {
+    if (!Platform.isIOS) return -1;
+    try {
+      final int taskId = await _channel.invokeMethod('startBackgroundTask');
+      return taskId;
+    } catch (e) {
+      if (kDebugMode) print('Error starting background task: $e');
+      return -1;
+    }
+  }
+
+  static Future<void> endBackgroundTask(int taskId) async {
+    if (!Platform.isIOS || taskId == -1) return;
+    try {
+      await _channel.invokeMethod('endBackgroundTask', {'taskId': taskId});
+    } catch (e) {
+      if (kDebugMode) print('Error ending background task: $e');
+    }
+  }
+}
+
