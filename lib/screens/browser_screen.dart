@@ -281,13 +281,24 @@ class _BrowserScreenState extends State<BrowserScreen> {
                           InAppWebView(
                             initialUrlRequest: URLRequest(url: WebUri(_currentUrl)),
                             initialSettings: InAppWebViewSettings(
-                              useShouldOverrideUrlLoading: true,
                               mediaPlaybackRequiresUserGesture: false,
                               allowsInlineMediaPlayback: true,
-                              userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
+                              javaScriptEnabled: true,
+                              javaScriptCanOpenWindowsAutomatically: true,
+                              allowsBackForwardNavigationGestures: true,
+                              sharedCookiesEnabled: true,
+                              isFraudulentWebsiteWarningEnabled: false,
+                              userAgent:
+                                  'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) '
+                                  'AppleWebKit/605.1.15 (KHTML, like Gecko) '
+                                  'Version/17.0 Mobile/15E148 Safari/604.1',
                             ),
                             onWebViewCreated: (controller) {
                               _webViewController = controller;
+                            },
+                            shouldOverrideUrlLoading: (controller, navigationAction) async {
+                              // Allow all navigation
+                              return NavigationActionPolicy.ALLOW;
                             },
                             onLoadStart: (controller, url) {
                               if (url != null) {
