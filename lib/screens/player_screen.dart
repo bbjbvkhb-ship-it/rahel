@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 import 'dart:ui';
@@ -26,6 +27,42 @@ class _PlayerScreenState extends State<PlayerScreen> {
   Color _backgroundColor = const Color(0xff0b1326);
   Color _accentColor = const Color(0xffd0bcff);
   String? _lastExtractedId;
+
+  bool _isDragging = false;
+  double? _dragValue;
+  DateTime _lastSyncTime = DateTime.now();
+  Duration _syncPosition = Duration.zero;
+  Duration _duration = Duration.zero;
+
+  StreamSubscription<Duration>? _positionSubscription;
+  StreamSubscription<Duration?>? _durationSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _positionSubscription = widget.audioHandler.player.positionStream.listen((pos) {
+      if (mounted) {
+        setState(() {
+          _lastSyncTime = DateTime.now();
+          _syncPosition = pos;
+        });
+      }
+    });
+    _durationSubscription = widget.audioHandler.player.durationStream.listen((dur) {
+      if (mounted && dur != null) {
+        setState(() {
+          _duration = dur;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _positionSubscription?.cancel();
+    _durationSubscription?.cancel();
+    super.dispose();
+  }
 
   // Format duration to mm:ss
   String _formatDuration(Duration duration) {
@@ -481,56 +518,82 @@ class _PlayerScreenState extends State<PlayerScreen> {
   }
 
   Widget _buildProgressBar(AudioPlayer player) {
-    return StreamBuilder<Duration?>(
-      stream: player.durationStream,
-      builder: (context, snapshot) {
-        final duration = snapshot.data ?? Duration.zero;
-        return StreamBuilder<Duration>(
-          stream: player.positionStream,
-          builder: (context, snapshot) {
-            var position = snapshot.data ?? Duration.zero;
-            if (position > duration) {
-              position = duration;
-            }
-            return Column(
-              children: [
-                SliderTheme(
-                  data: SliderTheme.of(context).copyWith(
-                    trackHeight: 4,
-                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
-                    overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
-                    activeTrackColor: _accentColor,
-                    inactiveTrackColor: Colors.white10,
-                    thumbColor: _accentColor,
+    return StreamBuilder<void>(
+      stream: Stream.periodic(const Duration(milliseconds: 33)),
+      builder: (context, _) {
+        final duration = _duration;
+        
+        // Calculate estimated position
+        Duration position = _syncPosition;
+        if (player.playing && !_isDragging) {
+          final elapsed = DateTime.now().difference(_lastSyncTime);
+          position = _syncPosition + elapsed * player.speed;
+          if (position > duration) {
+            position = duration;
+          }
+        }
+
+        final sliderValue = _isDragging 
+            ? _dragValue ?? 0.0 
+            : position.inMilliseconds.toDouble();
+
+        final maxVal = duration.inMilliseconds.toDouble();
+        
+        // Ensure sliderValue is clamped within [0, maxVal]
+        final clampedValue = sliderValue.clamp(0.0, maxVal > 0 ? maxVal : 1.0);
+
+        return Column(
+          children: [
+            SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                trackHeight: 4,
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
+                overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+                activeTrackColor: _accentColor,
+                inactiveTrackColor: Colors.white10,
+                thumbColor: _accentColor,
+              ),
+              child: Slider(
+                value: clampedValue,
+                min: 0.0,
+                max: maxVal > 0 ? maxVal : 1.0,
+                onChangeStart: (value) {
+                  setState(() {
+                    _isDragging = true;
+                    _dragValue = value;
+                  });
+                },
+                onChanged: (value) {
+                  setState(() {
+                    _dragValue = value;
+                  });
+                },
+                onChangeEnd: (value) {
+                  player.seek(Duration(milliseconds: value.round()));
+                  setState(() {
+                    _isDragging = false;
+                    _dragValue = null;
+                  });
+                },
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    _formatDuration(_isDragging ? Duration(milliseconds: clampedValue.round()) : position),
+                    style: const TextStyle(color: Color(0xffcbc3d7), fontSize: 11),
                   ),
-                  child: Slider(
-                    value: position.inMilliseconds.toDouble(),
-                    min: 0.0,
-                    max: duration.inMilliseconds.toDouble(),
-                    onChanged: (value) {
-                      player.seek(Duration(milliseconds: value.round()));
-                    },
+                  Text(
+                    _formatDuration(duration),
+                    style: const TextStyle(color: Colors.white24, fontSize: 11),
                   ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        _formatDuration(position),
-                        style: const TextStyle(color: Color(0xffcbc3d7), fontSize: 11),
-                      ),
-                      Text(
-                        _formatDuration(duration),
-                        style: const TextStyle(color: Colors.white24, fontSize: 11),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            );
-          },
+                ],
+              ),
+            ),
+          ],
         );
       },
     );
