@@ -262,58 +262,36 @@ class DownloadController extends ChangeNotifier {
       }
 
       if (task.isAudio) {
-        // Audio conversion path: Get audio-only stream and convert to mp3
-        final audioStreamInfo = manifest.audioOnly.withHighestBitrate();
-        final sizeStr = '${(audioStreamInfo.size.totalBytes / 1024 / 1024).toStringAsFixed(1)} MB';
-        task.update(size: sizeStr);
-        _downloadSize = sizeStr;
+        // Try to get native m4a stream to avoid FFmpeg conversion
+        final m4aStreams = manifest.audioOnly.where((s) => s.container.name == 'm4a');
+        if (m4aStreams.isNotEmpty) {
+          final audioStreamInfo = m4aStreams.withHighestBitrate();
+          final sizeStr = '${(audioStreamInfo.size.totalBytes / 1024 / 1024).toStringAsFixed(1)} MB';
+          task.update(size: sizeStr);
+          _downloadSize = sizeStr;
 
-        final tempAudioPath = p.join(downloadsDir.path, '${uniqueId}_temp.webm');
-        final outputAudioPath = p.join(downloadsDir.path, '$uniqueId.mp3');
+          final outputAudioPath = p.join(downloadsDir.path, '$uniqueId.m4a');
 
-        // Download stream to temp file
-        task.update(status: DownloadStatus.downloading);
-        _status = DownloadStatus.downloading;
-        notifyListeners();
+          // Download stream to output file directly!
+          task.update(status: DownloadStatus.downloading);
+          _status = DownloadStatus.downloading;
+          notifyListeners();
 
-        await _downloadStreamToFile(
-          audioStreamInfo,
-          tempAudioPath,
-          task,
-          0.0,
-          audioStreamInfo.size.totalBytes.toDouble(),
-        );
+          await _downloadStreamToFile(
+            audioStreamInfo,
+            outputAudioPath,
+            task,
+            0.0,
+            audioStreamInfo.size.totalBytes.toDouble(),
+          );
 
-        // Convert to MP3 using ffmpeg_kit
-        task.update(status: DownloadStatus.converting, progress: 0.0);
-        _status = DownloadStatus.converting;
-        _progress = 0.0;
-        notifyListeners();
-
-        final finalMp3File = File(outputAudioPath);
-        if (await finalMp3File.exists()) {
-          await finalMp3File.delete();
-        }
-
-        // Apply quality encoding
-        final bitrate = task.quality == '128k' ? '128k' : '320k';
-        final ffmpegCmd = '-y -i "$tempAudioPath" -b:a $bitrate -vn "$outputAudioPath"';
-        final session = await FFmpegKit.execute(ffmpegCmd);
-        final returnCode = await session.getReturnCode();
-
-        final tempFile = File(tempAudioPath);
-        if (await tempFile.exists()) {
-          await tempFile.delete();
-        }
-
-        if (ReturnCode.isSuccess(returnCode)) {
-          // Add to Library
+          // Add directly to Library
           final mediaItem = LocalMediaItem(
             id: uniqueId,
             title: video.title,
             artist: video.author,
             durationSeconds: video.duration?.inSeconds ?? 0,
-            filePath: p.join('downloads', '$uniqueId.mp3'),
+            filePath: p.join('downloads', '$uniqueId.m4a'),
             thumbnailPath: relThumbnailPath,
             isAudio: true,
             addedDate: DateTime.now(),
@@ -325,8 +303,72 @@ class DownloadController extends ChangeNotifier {
           _progress = 1.0;
           _moveToHistory(task);
         } else {
-          final failStackTrace = await session.getFailStackTrace();
-          throw Exception('فشل تحويل الملف الصوتي: $failStackTrace');
+          // Fallback to webm + FFmpeg MP3 conversion if no m4a stream exists
+          final audioStreamInfo = manifest.audioOnly.withHighestBitrate();
+          final sizeStr = '${(audioStreamInfo.size.totalBytes / 1024 / 1024).toStringAsFixed(1)} MB';
+          task.update(size: sizeStr);
+          _downloadSize = sizeStr;
+
+          final tempAudioPath = p.join(downloadsDir.path, '${uniqueId}_temp.webm');
+          final outputAudioPath = p.join(downloadsDir.path, '$uniqueId.mp3');
+
+          // Download stream to temp file
+          task.update(status: DownloadStatus.downloading);
+          _status = DownloadStatus.downloading;
+          notifyListeners();
+
+          await _downloadStreamToFile(
+            audioStreamInfo,
+            tempAudioPath,
+            task,
+            0.0,
+            audioStreamInfo.size.totalBytes.toDouble(),
+          );
+
+          // Convert to MP3 using ffmpeg_kit
+          task.update(status: DownloadStatus.converting, progress: 0.0);
+          _status = DownloadStatus.converting;
+          _progress = 0.0;
+          notifyListeners();
+
+          final finalMp3File = File(outputAudioPath);
+          if (await finalMp3File.exists()) {
+            await finalMp3File.delete();
+          }
+
+          // Apply quality encoding
+          final bitrate = task.quality == '128k' ? '128k' : '320k';
+          final ffmpegCmd = '-y -i "$tempAudioPath" -b:a $bitrate -vn "$outputAudioPath"';
+          final session = await FFmpegKit.execute(ffmpegCmd);
+          final returnCode = await session.getReturnCode();
+
+          final tempFile = File(tempAudioPath);
+          if (await tempFile.exists()) {
+            await tempFile.delete();
+          }
+
+          if (ReturnCode.isSuccess(returnCode)) {
+            // Add to Library
+            final mediaItem = LocalMediaItem(
+              id: uniqueId,
+              title: video.title,
+              artist: video.author,
+              durationSeconds: video.duration?.inSeconds ?? 0,
+              filePath: p.join('downloads', '$uniqueId.mp3'),
+              thumbnailPath: relThumbnailPath,
+              isAudio: true,
+              addedDate: DateTime.now(),
+            );
+            await libraryController.addItem(mediaItem);
+
+            task.update(status: DownloadStatus.completed, progress: 1.0);
+            _status = DownloadStatus.completed;
+            _progress = 1.0;
+            _moveToHistory(task);
+          } else {
+            final failStackTrace = await session.getFailStackTrace();
+            throw Exception('فشل تحويل الملف الصوتي: $failStackTrace');
+          }
         }
       } else {
         // Video path (Muxing video & audio for 1080p, or download muxed stream directly for 720p)

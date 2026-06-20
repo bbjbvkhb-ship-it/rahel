@@ -359,15 +359,19 @@ class _PlayerScreenState extends State<PlayerScreen> {
                                     ),
                                   ),
                                   const SizedBox(height: 16),
-                                  StreamBuilder<bool>(
-                                    stream: player.playingStream,
-                                    builder: (context, snapshot) {
-                                      final isPlaying = snapshot.data ?? false;
-                                      return AnimatedVisualizer(
-                                        isPlaying: isPlaying,
-                                        color: _accentColor,
-                                      );
-                                    },
+                                  Container(
+                                    height: 40,
+                                    alignment: Alignment.bottomCenter,
+                                    child: StreamBuilder<bool>(
+                                      stream: player.playingStream,
+                                      builder: (context, snapshot) {
+                                        final isPlaying = snapshot.data ?? false;
+                                        return AnimatedVisualizer(
+                                          isPlaying: isPlaying,
+                                          color: _accentColor,
+                                        );
+                                      },
+                                    ),
                                   )
                                 ],
                               ),
@@ -744,16 +748,24 @@ class _AnimatedVisualizerState extends State<AnimatedVisualizer> with SingleTick
           crossAxisAlignment: CrossAxisAlignment.end,
           children: List.generate(10, (index) {
             double value = _controller.value;
-            double height = 5 + (value * 25 * _multipliers[index]);
+            double height = 5 + (value * 30 * _multipliers[index]);
             if (!widget.isPlaying) {
               height = 4.0;
             }
+            
+            // RGB Gradient effect across the bars
+            final barColor = Color.lerp(
+              const Color(0xff89ceff), // Cyan
+              const Color(0xffd0bcff), // Purple
+              index / 9,
+            )!;
+
             return Container(
               width: 3.5,
               height: height,
               margin: const EdgeInsets.symmetric(horizontal: 2.5),
               decoration: BoxDecoration(
-                color: widget.color.withOpacity(0.7),
+                color: barColor,
                 borderRadius: BorderRadius.circular(2),
               ),
             );
