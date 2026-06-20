@@ -15,7 +15,7 @@ enum DownloadStatus { idle, queued, analyzing, downloading, converting, complete
 class DownloadTask {
   final String id;
   final String url;
-  final String title;
+  String title;
   final bool isAudio;
   final String quality;
   DownloadStatus status;
@@ -36,6 +36,20 @@ class DownloadTask {
     this.errorMessage = '',
     DateTime? dateAdded,
   }) : dateAdded = dateAdded ?? DateTime.now();
+
+  void update({
+    DownloadStatus? status,
+    double? progress,
+    String? size,
+    String? errorMessage,
+    String? title,
+  }) {
+    if (status != null) this.status = status;
+    if (progress != null) this.progress = progress;
+    if (size != null) this.size = size;
+    if (errorMessage != null) this.errorMessage = errorMessage;
+    if (title != null) this.title = title;
+  }
 
   Map<String, dynamic> toJson() {
     return {
