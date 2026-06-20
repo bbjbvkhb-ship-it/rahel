@@ -61,7 +61,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _openWhatsAppSupport() {
     // Standard WhatsApp chat link
     const whatsappUrl = 'https://wa.me/9647700000000'; // Mock/Standard support number
-    widget.onNavigateToBrowserUrl(1, whatsappUrl); // Navigate to browser tab and load WhatsApp
+    widget.onNavigateToBrowserUrl(2, whatsappUrl); // Navigate to browser tab and load WhatsApp (index 2 now)
   }
 
   @override

@@ -3,6 +3,7 @@ import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import '../services/audio_handler.dart';
 import 'library_screen.dart';
+import 'playlist_screen.dart';
 import 'browser_screen.dart';
 import 'player_screen.dart';
 import 'settings_screen.dart';
@@ -35,6 +36,14 @@ class _NavigationHolderState extends State<NavigationHolder> {
           });
         },
       ),
+      PlaylistScreen(
+        audioHandler: widget.audioHandler,
+        onNavigateToPlayer: (idx) {
+          setState(() {
+            _currentIndex = idx;
+          });
+        },
+      ),
       BrowserScreen(
         onNavigateToTab: (idx) {
           setState(() {
@@ -50,11 +59,6 @@ class _NavigationHolderState extends State<NavigationHolder> {
           setState(() {
             _currentIndex = idx;
           });
-          // Since BrowserScreen is already created, we need to pass the URL.
-          // In a simple setup, we navigate to the Browser tab, and the User can paste it or we can pass it via a provider or simple callback.
-          // Let's implement dynamic URL redirection via a Provider or just notify.
-          // Actually, our BrowserScreen can listen to events or we can make a simple static mechanism.
-          // Let's implement URL pasting in the browser view directly.
         },
       ),
     ];
@@ -73,7 +77,7 @@ class _NavigationHolderState extends State<NavigationHolder> {
           ),
 
           // Floating Mini-Player positioned just above the bottom navigation bar
-          if (_currentIndex != 2) // Hide on the Player screen itself
+          if (_currentIndex != 3) // Hide on the Player screen itself
             Positioned(
               left: 12,
               right: 12,
@@ -102,7 +106,7 @@ class _NavigationHolderState extends State<NavigationHolder> {
             return GestureDetector(
               onTap: () {
                 setState(() {
-                  _currentIndex = 2; // Open Player tab
+                  _currentIndex = 3; // Open Player tab (index 3 now)
                 });
               },
               child: Dismissible(
@@ -257,6 +261,11 @@ class _NavigationHolderState extends State<NavigationHolder> {
             icon: Icon(Icons.library_music_outlined),
             activeIcon: Icon(Icons.library_music),
             label: 'المكتبة',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.playlist_play_outlined),
+            activeIcon: Icon(Icons.playlist_play),
+            label: 'قوائم التشغيل',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.explore_outlined),

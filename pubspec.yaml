@@ -43,6 +43,11 @@ dependencies:
   http: ^1.6.0
   provider: ^6.1.5+1
   permission_handler: ^12.0.3
+  palette_generator: ^0.3.3+3
+  share_plus: ^10.1.4
+  sqflite: ^2.4.1
+  path: ^1.9.1
+
 
 dev_dependencies:
   flutter_test:

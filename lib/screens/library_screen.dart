@@ -2,8 +2,14 @@ import 'dart:io';
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit.dart';
+import 'package:ffmpeg_kit_flutter_new/return_code.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
 import '../controllers/library_controller.dart';
 import '../controllers/download_controller.dart';
+import '../controllers/playlist_controller.dart';
 import '../models/media_item.dart';
 import '../services/audio_handler.dart';
 
@@ -89,7 +95,185 @@ class _LibraryScreenState extends State<LibraryScreen> {
     }
 
     await widget.audioHandler.playQueue(queueItems, initialIndex, queuePaths);
-    widget.onNavigateToPlayer(2); // Go to player tab
+    widget.onNavigateToPlayer(3); // Go to player tab (index 3 now)
+  }
+
+  Future<void> _convertVideoToAudio(LocalMediaItem item, LibraryController libraryController) async {
+    if (item.isAudio) return;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          backgroundColor: const Color(0xff171f33),
+          title: const Text('تحويل الفيديو إلى صوت', style: TextStyle(color: Color(0xffdae2fd))),
+          content: Text('هل تريد استخراج الصوت من "${item.title}" وحفظه كملف MP3؟', style: const TextStyle(color: Color(0xffcbc3d7))),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('إلغاء', style: TextStyle(color: Color(0xffcbc3d7))),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('تحويل', style: TextStyle(color: Color(0xffd0bcff), fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirm != true) return;
+
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: Card(
+          color: Color(0xff171f33),
+          child: Padding(
+            padding: EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(color: Color(0xffd0bcff)),
+                SizedBox(height: 16),
+                Text('جاري تحويل الفيديو إلى صوت...', style: TextStyle(color: Color(0xffdae2fd))),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    try {
+      final videoPath = await libraryController.getAbsolutePath(item.filePath);
+      final appDir = await getApplicationDocumentsDirectory();
+      final downloadsDir = Directory(p.join(appDir.path, 'downloads'));
+      
+      final uniqueId = DateTime.now().millisecondsSinceEpoch.toString();
+      final audioPath = p.join(downloadsDir.path, '$uniqueId.mp3');
+
+      final ffmpegCmd = '-y -i "$videoPath" -b:a 320k -vn "$audioPath"';
+      final session = await FFmpegKit.execute(ffmpegCmd);
+      final returnCode = await session.getReturnCode();
+
+      if (mounted) Navigator.pop(context); // Dismiss loading
+
+      if (ReturnCode.isSuccess(returnCode)) {
+        final audioItem = LocalMediaItem(
+          id: uniqueId,
+          title: '${item.title} (صوت)',
+          artist: item.artist,
+          durationSeconds: item.durationSeconds,
+          filePath: p.join('downloads', '$uniqueId.mp3'),
+          thumbnailPath: item.thumbnailPath,
+          isAudio: true,
+          addedDate: DateTime.now(),
+          album: item.album,
+        );
+
+        await libraryController.addItem(audioItem);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('تم تحويل الفيديو إلى صوت بنجاح وتمت إضافته للمكتبة!', textDirection: TextDirection.rtl),
+              backgroundColor: Color(0xffd0bcff),
+            ),
+          );
+        }
+      } else {
+        throw Exception('فشل تحويل الملف بواسطة FFmpeg');
+      }
+    } catch (e) {
+      if (mounted) {
+        // Try dismissing loading if it is still shown
+        Navigator.of(context, rootNavigator: true).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('حدث خطأ أثناء التحويل: $e', textDirection: TextDirection.rtl),
+            backgroundColor: const Color(0xffffb2b7),
+          ),
+        );
+      }
+    }
+  }
+
+  void _showAddToPlaylistDialog(BuildContext context, LocalMediaItem item) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        final playlistController = Provider.of<PlaylistController>(context);
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: AlertDialog(
+            backgroundColor: const Color(0xff171f33),
+            title: const Text('إضافة إلى قائمة تشغيل', style: TextStyle(color: Color(0xffdae2fd))),
+            content: playlistController.playlists.isEmpty
+                ? const Text('لا توجد قوائم تشغيل حالية. يرجى إنشاء قائمة تشغيل أولاً.', style: TextStyle(color: Color(0xffcbc3d7)))
+                : SizedBox(
+                    width: double.maxFinite,
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: playlistController.playlists.length,
+                      itemBuilder: (context, index) {
+                        final playlist = playlistController.playlists[index];
+                        final alreadyAdded = playlist.itemIds.contains(item.id);
+                        return ListTile(
+                          title: Text(playlist.name, style: const TextStyle(color: Color(0xffdae2fd))),
+                          subtitle: Text('${playlist.itemIds.length} مسار صوتی', style: const TextStyle(color: Color(0xffcbc3d7), fontSize: 11)),
+                          trailing: alreadyAdded
+                              ? const Icon(Icons.check_circle, color: Color(0xffd0bcff))
+                              : const Icon(Icons.add_circle_outline, color: Color(0xffcbc3d7)),
+                          onTap: alreadyAdded
+                              ? null
+                              : () {
+                                  playlistController.addTrackToPlaylist(playlist.id, item.id);
+                                  Navigator.pop(context);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('تمت إضافة "${item.title}" إلى قائمة "${playlist.name}"', textDirection: TextDirection.rtl),
+                                      backgroundColor: const Color(0xffd0bcff),
+                                    ),
+                                  );
+                                },
+                        );
+                      },
+                    ),
+                  ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('إلغاء', style: TextStyle(color: Color(0xffcbc3d7))),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _shareMediaFile(LocalMediaItem item, LibraryController libraryController) async {
+    try {
+      final absPath = await libraryController.getAbsolutePath(item.filePath);
+      final fileExists = await File(absPath).exists();
+      if (!fileExists) {
+        throw Exception('الملف غير موجود على الجهاز');
+      }
+
+      await Share.shareXFiles([XFile(absPath)], text: item.title);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('فشل مشاركة الملف: $e', textDirection: TextDirection.rtl),
+            backgroundColor: const Color(0xffffb2b7),
+          ),
+        );
+      }
+    }
   }
 
   // Show action sheet for item
@@ -153,6 +337,31 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   _showAlbumDialog(context, item, libraryController);
                 },
               ),
+              ListTile(
+                leading: const Icon(Icons.playlist_add, color: Color(0xffd0bcff)),
+                title: const Text('إضافة إلى قائمة تشغيل', style: TextStyle(color: Color(0xffdae2fd))),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showAddToPlaylistDialog(context, item);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.share, color: Color(0xff89ceff)),
+                title: const Text('مشاركة الملف', style: TextStyle(color: Color(0xffdae2fd))),
+                onTap: () {
+                  Navigator.pop(context);
+                  _shareMediaFile(item, libraryController);
+                },
+              ),
+              if (!item.isAudio)
+                ListTile(
+                  leading: const Icon(Icons.music_note, color: Color(0xffffb2b7)),
+                  title: const Text('تحويل إلى ملف صوتي MP3', style: TextStyle(color: Color(0xffdae2fd))),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _convertVideoToAudio(item, libraryController);
+                  },
+                ),
               ListTile(
                 leading: const Icon(Icons.delete_forever, color: Color(0xffffb2b7)),
                 title: const Text('حذف نهائي', style: TextStyle(color: Color(0xffffb2b7))),
@@ -634,6 +843,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
       padding: const EdgeInsets.only(bottom: 12),
       child: InkWell(
         onTap: () => _playTrack(item, libraryController),
+        onLongPress: !item.isAudio ? () => _convertVideoToAudio(item, libraryController) : null,
         borderRadius: BorderRadius.circular(16),
         child: Container(
           padding: const EdgeInsets.all(8),

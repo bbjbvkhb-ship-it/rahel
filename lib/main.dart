@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'controllers/download_controller.dart';
 import 'controllers/library_controller.dart';
+import 'controllers/player_controller.dart';
+import 'controllers/playlist_controller.dart';
 import 'screens/navigation_holder.dart';
 import 'services/audio_handler.dart';
 
@@ -17,6 +19,8 @@ void main() async {
         ChangeNotifierProvider(create: (_) => LibraryController()),
         ChangeNotifierProvider(create: (_) => DownloadController()),
         Provider<MyAudioHandler>.value(value: audioHandler as MyAudioHandler),
+        ChangeNotifierProvider(create: (_) => PlayerController(audioHandler: audioHandler as MyAudioHandler)),
+        ChangeNotifierProvider(create: (_) => PlaylistController()),
       ],
       child: MyApp(audioHandler: audioHandler as MyAudioHandler),
     ),

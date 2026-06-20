@@ -1,9 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:provider/provider.dart';
 import '../controllers/download_controller.dart';
 import '../controllers/library_controller.dart';
+import '../widgets/smart_download_sheet.dart';
 
 class BrowserScreen extends StatefulWidget {
   final Function(int) onNavigateToTab;
@@ -72,6 +74,55 @@ class _BrowserScreenState extends State<BrowserScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkClipboardForYouTube();
+    });
+  }
+
+  Future<void> _checkClipboardForYouTube() async {
+    try {
+      final data = await Clipboard.getData(Clipboard.kTextPlain);
+      if (data != null && data.text != null) {
+        final text = data.text!.trim();
+        final isYouTube = text.contains('youtube.com') || text.contains('youtu.be');
+        if (isYouTube && text != _currentUrl) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('تم العثور على رابط يوتيوب في الحافظة:\n$text', textDirection: TextDirection.rtl),
+              backgroundColor: const Color(0xff171f33),
+              duration: const Duration(seconds: 8),
+              action: SnackBarAction(
+                label: 'فتح وتنزيل',
+                textColor: const Color(0xffd0bcff),
+                onPressed: () {
+                  _urlController.text = text;
+                  _loadUrl(text);
+                  _showSmartDownloadSheet(text);
+                },
+              ),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) print('Error checking clipboard: $e');
+    }
+  }
+
+  void _showSmartDownloadSheet(String url) {
+    if (url.isEmpty) return;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => SmartDownloadSheet(url: url),
+    );
+  }
+
+  @override
   void dispose() {
     _urlController.dispose();
     super.dispose();
@@ -132,33 +183,9 @@ class _BrowserScreenState extends State<BrowserScreen> {
     });
   }
 
-  // Trigger download in DownloadController
+  // Trigger download in DownloadController (Redirected to Smart Download Sheet)
   void _triggerDownload(bool isAudio) {
-    final downloadController = Provider.of<DownloadController>(context, listen: false);
-    final libraryController = Provider.of<LibraryController>(context, listen: false);
-
-    if (_currentUrl.isEmpty) return;
-
-    downloadController.startDownload(_currentUrl, isAudio, libraryController);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text('بدأ التحميل! تتبع التقدم في المكتبة', textDirection: TextDirection.rtl),
-            TextButton(
-              onPressed: () {
-                widget.onNavigateToTab(0); // Go to library tab
-              },
-              child: const Text('المكتبة', style: TextStyle(color: Color(0xffd0bcff), fontWeight: FontWeight.bold)),
-            ),
-          ],
-        ),
-        backgroundColor: const Color(0xff171f33),
-        duration: const Duration(seconds: 4),
-      ),
-    );
+    _showSmartDownloadSheet(_currentUrl);
   }
 
   @override
@@ -427,30 +454,15 @@ class _BrowserScreenState extends State<BrowserScreen> {
                                         style: TextStyle(color: Color(0xffdae2fd), fontSize: 13, fontWeight: FontWeight.bold),
                                       ),
                                     ),
-                                    Row(
-                                      children: [
-                                        ElevatedButton.icon(
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: const Color(0xffd0bcff),
-                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                            minimumSize: Size.zero,
-                                          ),
-                                          icon: const Icon(Icons.music_note, size: 16, color: Color(0xff0b1326)),
-                                          label: const Text('صوت MP3', style: TextStyle(color: Color(0xff0b1326), fontSize: 11, fontWeight: FontWeight.bold)),
-                                          onPressed: () => _triggerDownload(true),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        ElevatedButton.icon(
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: const Color(0xff89ceff),
-                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                            minimumSize: Size.zero,
-                                          ),
-                                          icon: const Icon(Icons.videocam, size: 16, color: Color(0xff0b1326)),
-                                          label: const Text('فيديو MP4', style: TextStyle(color: Color(0xff0b1326), fontSize: 11, fontWeight: FontWeight.bold)),
-                                          onPressed: () => _triggerDownload(false),
-                                        ),
-                                      ],
+                                    ElevatedButton.icon(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(0xffd0bcff),
+                                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                      ),
+                                      icon: const Icon(Icons.download_done, size: 16, color: Color(0xff0b1326)),
+                                      label: const Text('تنزيل متميز', style: TextStyle(color: Color(0xff0b1326), fontSize: 12, fontWeight: FontWeight.bold)),
+                                      onPressed: () => _showSmartDownloadSheet(_currentUrl),
                                     )
                                   ],
                                 ),
