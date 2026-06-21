@@ -191,6 +191,29 @@ class DownloadController extends ChangeNotifier {
     _processQueue(libraryController);
   }
 
+  // Retry a failed download task
+  Future<void> retryTask(DownloadTask task, LibraryController libraryController) async {
+    // Remove from history
+    _history.removeWhere((t) => t.id == task.id);
+    _saveHistory();
+
+    // Reset status and progress
+    task.update(
+      status: DownloadStatus.queued,
+      progress: 0.0,
+      errorMessage: '',
+    );
+
+    _tasks.add(task);
+    
+    // Update backward compatibility fields
+    _status = DownloadStatus.queued;
+    _currentTitle = task.title;
+    notifyListeners();
+
+    _processQueue(libraryController);
+  }
+
   // Process the queue and execute up to 3 concurrent downloads
   Future<void> _processQueue(LibraryController libraryController) async {
     final activeCount = _tasks.where((t) => 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../controllers/download_controller.dart';
+import '../controllers/library_controller.dart';
 
 class DownloadsScreen extends StatefulWidget {
   const DownloadsScreen({super.key});
@@ -120,7 +121,7 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
                       style: TextStyle(color: Color(0xffdae2fd), fontSize: 15, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 12),
-                    ...historyTasks.map((task) => _buildHistoryTaskCard(task)),
+                    ...historyTasks.map((task) => _buildHistoryTaskCard(context, task, downloadController)),
                   ],
                 ],
               ),
@@ -230,7 +231,7 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
     );
   }
 
-  Widget _buildHistoryTaskCard(DownloadTask task) {
+  Widget _buildHistoryTaskCard(BuildContext context, DownloadTask task, DownloadController downloadController) {
     final isSuccess = task.status == DownloadStatus.completed;
     final statusColor = _getStatusColor(task.status);
 
@@ -274,10 +275,19 @@ class _DownloadsScreenState extends State<DownloadsScreen> {
             ),
           ],
         ),
-        trailing: Text(
-          '${task.dateAdded.hour}:${task.dateAdded.minute.toString().padLeft(2, '0')}',
-          style: const TextStyle(color: Colors.white12, fontSize: 10),
-        ),
+        trailing: isSuccess
+            ? Text(
+                '${task.dateAdded.hour}:${task.dateAdded.minute.toString().padLeft(2, '0')}',
+                style: const TextStyle(color: Colors.white12, fontSize: 10),
+              )
+            : IconButton(
+                icon: const Icon(Icons.refresh, color: Color(0xff89ceff), size: 20),
+                tooltip: 'إعادة المحاولة',
+                onPressed: () {
+                  final libraryController = Provider.of<LibraryController>(context, listen: false);
+                  downloadController.retryTask(task, libraryController);
+                },
+              ),
       ),
     );
   }
