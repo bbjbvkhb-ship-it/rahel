@@ -13,6 +13,7 @@ import 'package:background_downloader/background_downloader.dart' as bg;
 import '../models/media_item.dart';
 import 'library_controller.dart';
 import '../services/youtube_helper.dart';
+import '../services/ad_service.dart';
 
 
 enum DownloadStatus { idle, queued, analyzing, downloading, converting, completed, failed }
@@ -632,7 +633,8 @@ class DownloadController extends ChangeNotifier {
       );
 
       if (result.status != bg.TaskStatus.complete) {
-        throw Exception('فشل تحميل الملف المباشر: ${result.status.name}');
+        final details = result.exception != null ? ' (${result.exception})' : '';
+        throw Exception('فشل تحميل الملف المباشر: ${result.status.name}$details');
       }
 
       // Add to Library
@@ -698,14 +700,21 @@ class DownloadController extends ChangeNotifier {
     );
 
     if (result.status != bg.TaskStatus.complete) {
-      throw Exception('فشل تحميل ملف البث: ${result.status.name}');
+      final details = result.exception != null ? ' (${result.exception})' : '';
+      throw Exception('فشل تحميل ملف البث: ${result.status.name}$details');
     }
   }
 
   void _moveToHistory(DownloadTask task) {
     _tasks.removeWhere((t) => t.id == task.id);
+    _history.removeWhere((t) => t.id == task.id); // Prevent duplicates
     _history.insert(0, task); // Save to history
     _saveHistory();
+
+    // Show Interstitial Ad on successful download completion
+    if (task.status == DownloadStatus.completed) {
+      AdService().showInterstitialAd();
+    }
   }
 
   @override

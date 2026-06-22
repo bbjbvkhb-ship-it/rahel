@@ -1,14 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'controllers/download_controller.dart';
 import 'controllers/library_controller.dart';
 import 'controllers/player_controller.dart';
 import 'controllers/playlist_controller.dart';
 import 'screens/navigation_holder.dart';
 import 'services/audio_handler.dart';
+import 'services/ad_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize AdMob SDK
+  await MobileAds.instance.initialize();
+  
+  // Preload Interstitial Ad
+  AdService().loadInterstitialAd();
   
   // Initialize the native audio playback service
   final audioHandler = await initAudioService();
