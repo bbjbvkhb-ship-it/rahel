@@ -12,12 +12,6 @@ import 'services/ad_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Initialize AdMob SDK
-  await MobileAds.instance.initialize();
-  
-  // Preload Interstitial Ad
-  AdService().loadInterstitialAd();
-  
   // Initialize the native audio playback service
   final audioHandler = await initAudioService();
 
@@ -33,6 +27,11 @@ void main() async {
       child: MyApp(audioHandler: audioHandler as MyAudioHandler),
     ),
   );
+
+  // Initialize AdMob SDK in the background after startup to avoid blocking splash screen
+  MobileAds.instance.initialize().then((_) {
+    AdService().loadInterstitialAd();
+  });
 }
 
 class MyApp extends StatelessWidget {
