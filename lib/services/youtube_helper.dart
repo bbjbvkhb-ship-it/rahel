@@ -1,16 +1,29 @@
+import 'package:youtube_explode_dart/youtube_explode_dart.dart';
+
 String? extractYoutubeVideoId(String url) {
   url = url.trim();
   if (url.isEmpty) return null;
+
+  // Try using youtube_explode's VideoId parse method first
+  try {
+    final videoIdObj = VideoId(url);
+    if (videoIdObj.value.length == 11) {
+      return videoIdObj.value;
+    }
+  } catch (_) {
+    // Fallback to manual regex if VideoId throws
+  }
 
   // Pattern to find 11 character video ID
   // It handles:
   // - youtube.com/watch?v=ID
   // - youtube.com/embed/ID
   // - youtube.com/shorts/ID
+  // - youtube.com/live/ID
   // - youtu.be/ID
   // - music.youtube.com/watch?v=ID
   final regExp = RegExp(
-    r'^.*(youtu.be\/|v\/|u\/\w\/|embed\/|shorts\/|watch\?v=|\&v=)([^#\&\?]*).*',
+    r'^.*(youtu.be\/|v\/|u\/\w\/|embed\/|shorts\/|live\/|watch\?v=|\&v=)([^#\&\?]*).*',
     caseSensitive: false,
     multiLine: false,
   );
@@ -30,7 +43,7 @@ String? extractYoutubeVideoId(String url) {
     return watchMatch.group(1);
   }
 
-  final pathReg = RegExp(r'(shorts\/|embed\/|v\/|youtu.be\/)([^&#\?\s]+)');
+  final pathReg = RegExp(r'(shorts\/|embed\/|v\/|live\/|youtu.be\/)([^&#\?\s]+)');
   final pathMatch = pathReg.firstMatch(url);
   if (pathMatch != null && pathMatch.group(2)?.length == 11) {
     return pathMatch.group(2);

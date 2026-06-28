@@ -241,10 +241,11 @@ class DownloadController extends ChangeNotifier {
 
   // Actual download execution
   Future<void> _executeDownload(DownloadTask task, LibraryController libraryController) async {
+    final cleanUrl = task.url;
+    final isYouTube = cleanUrl.contains('youtube.com') || cleanUrl.contains('youtu.be');
+    
+    final bgTaskId = isYouTube ? await BackgroundTaskHelper.startBackgroundTask() : -1;
     try {
-      final cleanUrl = task.url;
-      final isYouTube = cleanUrl.contains('youtube.com') || cleanUrl.contains('youtu.be');
-
       if (!isYouTube) {
         await _downloadDirectFile(task, libraryController);
         return;
@@ -372,46 +373,41 @@ class DownloadController extends ChangeNotifier {
           final bitrate = task.quality == '128k' ? '128k' : '320k';
           final ffmpegCmd = '-y -i "$tempAudioPath" -b:a $bitrate -vn "$outputAudioPath"';
           
-          final taskId = await BackgroundTaskHelper.startBackgroundTask();
-          try {
-            final session = await FFmpegKit.execute(ffmpegCmd).timeout(
-              const Duration(seconds: 45),
-              onTimeout: () {
-                throw TimeoutException('استغرقت عملية تحويل الصوت وقتاً طويلاً');
-              },
+          final session = await FFmpegKit.execute(ffmpegCmd).timeout(
+            const Duration(seconds: 45),
+            onTimeout: () {
+              throw TimeoutException('استغرقت عملية تحويل الصوت وقتاً طويلاً');
+            },
+          );
+          final returnCode = await session.getReturnCode();
+
+
+          final tempFile = File(tempAudioPath);
+          if (await tempFile.exists()) {
+            await tempFile.delete();
+          }
+
+          if (ReturnCode.isSuccess(returnCode)) {
+            // Add to Library
+            final mediaItem = LocalMediaItem(
+              id: uniqueId,
+              title: video.title,
+              artist: video.author,
+              durationSeconds: video.duration?.inSeconds ?? 0,
+              filePath: p.join('downloads', '$uniqueId.mp3'),
+              thumbnailPath: relThumbnailPath,
+              isAudio: true,
+              addedDate: DateTime.now(),
             );
-            final returnCode = await session.getReturnCode();
+            await libraryController.addItem(mediaItem);
 
-
-            final tempFile = File(tempAudioPath);
-            if (await tempFile.exists()) {
-              await tempFile.delete();
-            }
-
-            if (ReturnCode.isSuccess(returnCode)) {
-              // Add to Library
-              final mediaItem = LocalMediaItem(
-                id: uniqueId,
-                title: video.title,
-                artist: video.author,
-                durationSeconds: video.duration?.inSeconds ?? 0,
-                filePath: p.join('downloads', '$uniqueId.mp3'),
-                thumbnailPath: relThumbnailPath,
-                isAudio: true,
-                addedDate: DateTime.now(),
-              );
-              await libraryController.addItem(mediaItem);
-
-              task.update(status: DownloadStatus.completed, progress: 1.0);
-              _status = DownloadStatus.completed;
-              _progress = 1.0;
-              _moveToHistory(task);
-            } else {
-              final failStackTrace = await session.getFailStackTrace();
-              throw Exception('فشل تحويل الملف الصوتي: $failStackTrace');
-            }
-          } finally {
-            await BackgroundTaskHelper.endBackgroundTask(taskId);
+            task.update(status: DownloadStatus.completed, progress: 1.0);
+            _status = DownloadStatus.completed;
+            _progress = 1.0;
+            _moveToHistory(task);
+          } else {
+            final failStackTrace = await session.getFailStackTrace();
+            throw Exception('فشل تحويل الملف الصوتي: $failStackTrace');
           }
         }
       } else {
@@ -469,44 +465,39 @@ class DownloadController extends ChangeNotifier {
 
           final ffmpegCmd = '-y -i "$tempVideoPath" -i "$tempAudioPath" -c:v copy -c:a aac "$outputVideoPath"';
           
-          final taskId = await BackgroundTaskHelper.startBackgroundTask();
-          try {
-            final session = await FFmpegKit.execute(ffmpegCmd).timeout(
-              const Duration(seconds: 60),
-              onTimeout: () {
-                throw TimeoutException('استغرقت عملية معالجة الفيديو وقتاً طويلاً');
-              },
+          final session = await FFmpegKit.execute(ffmpegCmd).timeout(
+            const Duration(seconds: 60),
+            onTimeout: () {
+              throw TimeoutException('استغرقت عملية معالجة الفيديو وقتاً طويلاً');
+            },
+          );
+          final returnCode = await session.getReturnCode();
+
+
+          final tempVideoFile = File(tempVideoPath);
+          final tempAudioFile = File(tempAudioPath);
+          if (await tempVideoFile.exists()) await tempVideoFile.delete();
+          if (await tempAudioFile.exists()) await tempAudioFile.delete();
+
+          if (ReturnCode.isSuccess(returnCode)) {
+            final mediaItem = LocalMediaItem(
+              id: uniqueId,
+              title: video.title,
+              artist: video.author,
+              durationSeconds: video.duration?.inSeconds ?? 0,
+              filePath: p.join('downloads', '$uniqueId.mp4'),
+              thumbnailPath: relThumbnailPath,
+              isAudio: false,
+              addedDate: DateTime.now(),
             );
-            final returnCode = await session.getReturnCode();
+            await libraryController.addItem(mediaItem);
 
-
-            final tempVideoFile = File(tempVideoPath);
-            final tempAudioFile = File(tempAudioPath);
-            if (await tempVideoFile.exists()) await tempVideoFile.delete();
-            if (await tempAudioFile.exists()) await tempAudioFile.delete();
-
-            if (ReturnCode.isSuccess(returnCode)) {
-              final mediaItem = LocalMediaItem(
-                id: uniqueId,
-                title: video.title,
-                artist: video.author,
-                durationSeconds: video.duration?.inSeconds ?? 0,
-                filePath: p.join('downloads', '$uniqueId.mp4'),
-                thumbnailPath: relThumbnailPath,
-                isAudio: false,
-                addedDate: DateTime.now(),
-              );
-              await libraryController.addItem(mediaItem);
-
-              task.update(status: DownloadStatus.completed, progress: 1.0);
-              _status = DownloadStatus.completed;
-              _progress = 1.0;
-              _moveToHistory(task);
-            } else {
-              throw Exception('فشل دمج الصوت مع الفيديو بدقة 1080p');
-            }
-          } finally {
-            await BackgroundTaskHelper.endBackgroundTask(taskId);
+            task.update(status: DownloadStatus.completed, progress: 1.0);
+            _status = DownloadStatus.completed;
+            _progress = 1.0;
+            _moveToHistory(task);
+          } else {
+            throw Exception('فشل دمج الصوت مع الفيديو بدقة 1080p');
           }
         } else {
           // Download 720p or lower muxed stream
@@ -559,6 +550,9 @@ class DownloadController extends ChangeNotifier {
       _status = DownloadStatus.failed;
       _moveToHistory(task);
     } finally {
+      if (bgTaskId != -1) {
+        await BackgroundTaskHelper.endBackgroundTask(bgTaskId);
+      }
       notifyListeners();
       // Process next in queue
       _processQueue(libraryController);
@@ -671,37 +665,35 @@ class DownloadController extends ChangeNotifier {
     double startProgressOffset,
     double totalBytesForProgress,
   ) async {
-    final filename = p.basename(outputPath);
-    final bgTask = bg.DownloadTask(
-      url: streamInfo.url.toString(),
-      filename: filename,
-      baseDirectory: bg.BaseDirectory.applicationDocuments,
-      directory: 'downloads',
-      updates: bg.Updates.statusAndProgress,
-      retries: 3,
-      headers: const {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      },
-    );
+    final file = File(outputPath);
+    if (await file.exists()) {
+      await file.delete();
+    }
 
-
-    final result = await bg.FileDownloader().download(
-      bgTask,
-
-      onProgress: (progress) {
-        if (progress >= 0.0 && progress <= 1.0) {
-          final bytesDownloaded = progress * streamInfo.size.totalBytes.toDouble();
-          final prog = startProgressOffset + (bytesDownloaded / totalBytesForProgress);
-          task.update(progress: prog.clamp(0.0, 1.0));
-          _progress = task.progress;
-          notifyListeners();
-        }
-      },
-    );
-
-    if (result.status != bg.TaskStatus.complete) {
-      final details = result.exception != null ? ' (${result.exception})' : '';
-      throw Exception('فشل تحميل ملف البث: ${result.status.name}$details');
+    final outputStream = file.openWrite(mode: FileMode.writeOnlyAppend);
+    
+    try {
+      final stream = _yt.videos.streamsClient.get(streamInfo);
+      
+      int bytesDownloaded = 0;
+      
+      await for (final data in stream) {
+        outputStream.add(data);
+        bytesDownloaded += data.length;
+        
+        final bytesDownloadedDouble = bytesDownloaded.toDouble();
+        final prog = startProgressOffset + (bytesDownloadedDouble / totalBytesForProgress);
+        task.update(progress: prog.clamp(0.0, 1.0));
+        _progress = task.progress;
+        notifyListeners();
+      }
+      
+      await outputStream.flush();
+    } catch (e) {
+      if (kDebugMode) print('Stream download error: $e');
+      throw Exception('فشل تحميل ملف البث: $e');
+    } finally {
+      await outputStream.close();
     }
   }
 
