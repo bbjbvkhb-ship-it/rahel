@@ -1035,116 +1035,166 @@ class _LibraryScreenState extends State<LibraryScreen> {
   Widget _buildTrackCard(BuildContext context, LocalMediaItem item, LibraryController libraryController) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
-      child: InkWell(
-        onTap: () => _playTrack(item, libraryController),
-        onLongPress: !item.isAudio ? () => _convertVideoToAudio(item, libraryController) : null,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          padding: const EdgeInsets.all(8),
+      child: Dismissible(
+        key: Key('track-${item.id}'),
+        direction: DismissDirection.endToStart,
+        background: Container(
+          alignment: Alignment.centerLeft,
+          padding: const EdgeInsets.only(left: 20),
           decoration: BoxDecoration(
-            color: const Color(0xff171f33).withOpacity(0.4),
+            color: const Color(0xfffb7185).withOpacity(0.15),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withOpacity(0.04), width: 0.5),
+            border: Border.all(color: const Color(0xfffb7185).withOpacity(0.3), width: 0.5),
           ),
-          child: Row(
-            children: [
-              // Thumbnail
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: SizedBox(
-                  width: 56,
-                  height: 56,
-                  child: item.thumbnailPath.startsWith('downloads')
-                      ? FutureBuilder<String>(
-                          future: libraryController.getAbsolutePath(item.thumbnailPath),
-                          builder: (context, snapshot) {
-                            if (snapshot.hasData && File(snapshot.data!).existsSync()) {
-                              return Image.file(
-                                File(snapshot.data!),
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => _buildFallbackThumb(item.isAudio),
-                              );
-                            }
-                            return _buildFallbackThumb(item.isAudio);
-                          },
-                        )
-                      : _buildFallbackThumb(item.isAudio),
+          child: const Icon(Icons.delete_sweep, color: Color(0xfffb7185), size: 26),
+        ),
+        confirmDismiss: (direction) async {
+          return await showDialog<bool>(
+            context: context,
+            builder: (context) {
+              return AlertDialog(
+                backgroundColor: const Color(0xff171f33),
+                title: const Text('تأكيد الحذف', textDirection: TextDirection.rtl, style: TextStyle(color: Color(0xfffb7185), fontWeight: FontWeight.bold)),
+                content: const Text(
+                  'هل أنت متأكد من رغبتك في حذف هذا الملف نهائياً من ذاكرة الجهاز؟ لا يمكن التراجع عن هذا الإجراء.',
+                  textDirection: TextDirection.rtl,
+                  style: TextStyle(color: Color(0xffdae2fd), fontSize: 14),
                 ),
-              ),
-              const SizedBox(width: 12),
-              // Track Details
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Color(0xffdae2fd),
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      item.artist,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Color(0xffcbc3d7),
-                        fontSize: 12,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: item.isAudio
-                                ? const Color(0xffd0bcff).withOpacity(0.1)
-                                : const Color(0xff89ceff).withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            item.isAudio ? 'MP3' : 'MP4',
-                            style: TextStyle(
-                              color: item.isAudio ? const Color(0xffd0bcff) : const Color(0xff89ceff),
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text('إلغاء', style: TextStyle(color: Color(0xffcbc3d7))),
+                  ),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xfffb7185)),
+                    onPressed: () => Navigator.pop(context, true),
+                    child: const Text('حذف', style: TextStyle(color: Color(0xff0b1326), fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              );
+            },
+          );
+        },
+        onDismissed: (direction) {
+          libraryController.deleteItem(item);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('تم حذف "${item.title}" نهائياً من الجهاز.', textDirection: TextDirection.rtl),
+              backgroundColor: const Color(0xfffb7185),
+            ),
+          );
+        },
+        child: InkWell(
+          onTap: () => _playTrack(item, libraryController),
+          onLongPress: !item.isAudio ? () => _convertVideoToAudio(item, libraryController) : null,
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xff171f33).withOpacity(0.4),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white.withOpacity(0.04), width: 0.5),
+            ),
+            child: Row(
+              children: [
+                // Thumbnail
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: SizedBox(
+                    width: 56,
+                    height: 56,
+                    child: item.thumbnailPath.startsWith('downloads')
+                        ? FutureBuilder<String>(
+                            future: libraryController.getAbsolutePath(item.thumbnailPath),
+                            builder: (context, snapshot) {
+                              if (snapshot.hasData && File(snapshot.data!).existsSync()) {
+                                return Image.file(
+                                  File(snapshot.data!),
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => _buildFallbackThumb(item.isAudio),
+                                );
+                              }
+                              return _buildFallbackThumb(item.isAudio);
+                            },
+                          )
+                        : _buildFallbackThumb(item.isAudio),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                // Track Details
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xffdae2fd),
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
                         ),
-                        if (item.album != null) ...[
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              item.year != null ? '💿 ${item.album} (${item.year})' : '💿 ${item.album}',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(color: Colors.white24, fontSize: 10),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        item.artist,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xffcbc3d7),
+                          fontSize: 12,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: item.isAudio
+                                  ? const Color(0xffd0bcff).withOpacity(0.1)
+                                  : const Color(0xff89ceff).withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(4),
                             ),
+                            child: Text(
+                              item.isAudio ? 'MP3' : 'MP4',
+                              style: TextStyle(
+                                color: item.isAudio ? const Color(0xffd0bcff) : const Color(0xff89ceff),
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          if (item.album != null) ...[
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                item.year != null ? '💿 ${item.album} (${item.year})' : '💿 ${item.album}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(color: Colors.white24, fontSize: 10),
+                              ),
+                            ),
+                          ],
+                          const Spacer(),
+                          Text(
+                            _formatDuration(item.durationSeconds),
+                            style: const TextStyle(color: Colors.white30, fontSize: 11),
                           ),
                         ],
-                        const Spacer(),
-                        Text(
-                          _formatDuration(item.durationSeconds),
-                          style: const TextStyle(color: Colors.white30, fontSize: 11),
-                        ),
-                      ],
-                    ),
-                  ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              // Action Button
-              IconButton(
-                icon: const Icon(Icons.more_vert, color: Color(0xffcbc3d7)),
-                onPressed: () => _showActionSheet(context, item, libraryController),
-              ),
-            ],
+                const SizedBox(width: 8),
+                // Action Button
+                IconButton(
+                  icon: const Icon(Icons.more_vert, color: Color(0xffcbc3d7)),
+                  onPressed: () => _showActionSheet(context, item, libraryController),
+                ),
+              ],
+            ),
           ),
         ),
       ),
