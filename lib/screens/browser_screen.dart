@@ -198,7 +198,7 @@ class _BrowserScreenState extends State<BrowserScreen> {
           backgroundColor: const Color(0xff0b1326),
           elevation: 0,
           title: const Text(
-            'المتصفح الذكي',
+            'المتصفح',
             style: TextStyle(
               color: Color(0xffd0bcff),
               fontSize: 24,

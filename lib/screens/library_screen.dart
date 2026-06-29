@@ -3,6 +3,7 @@ import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:open_filex/open_filex.dart';
 import 'package:ffmpeg_kit_flutter_new/ffmpeg_kit.dart';
 import 'package:ffmpeg_kit_flutter_new/return_code.dart';
 import 'package:path_provider/path_provider.dart';
@@ -54,7 +55,86 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   // Play track and configure audio service
+  // Play track and configure audio service
   void _playTrack(LocalMediaItem item, LibraryController libraryController) async {
+    if (!item.isAudio) {
+      _showVideoPlayOptions(item, libraryController);
+      return;
+    }
+    _playAudioTrackOnly(item, libraryController);
+  }
+
+  void _showVideoPlayOptions(LocalMediaItem item, LibraryController libraryController) async {
+    final absPath = await libraryController.getAbsolutePath(item.filePath);
+
+    if (!mounted) return;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xff171f33),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 16),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text(
+                  item.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xffdae2fd),
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'خيارات تشغيل ملف الفيديو (MP4)',
+                style: TextStyle(color: Color(0xffcbc3d7), fontSize: 12),
+              ),
+              const Divider(color: Colors.white10, height: 24),
+              ListTile(
+                leading: const Icon(Icons.movie, color: Color(0xff89ceff)),
+                title: const Text('تشغيل كفيديو (في مشغل الجهاز)', style: TextStyle(color: Color(0xffdae2fd), fontSize: 14)),
+                subtitle: const Text('لمشاهدة المقطع بالصوت والصورة بملء الشاشة', style: TextStyle(color: Colors.white24, fontSize: 11)),
+                onTap: () async {
+                  Navigator.pop(context);
+                  final result = await OpenFilex.open(absPath);
+                  if (result.type != ResultType.done && mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('تعذر فتح الفيديو تلقائياً: ${result.message}', textDirection: TextDirection.rtl),
+                        backgroundColor: const Color(0xffffb2b7),
+                      ),
+                    );
+                  }
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.music_note, color: Color(0xffd0bcff)),
+                title: const Text('تشغيل كصوت فقط (في الخلفية)', style: TextStyle(color: Color(0xffdae2fd), fontSize: 14)),
+                subtitle: const Text('للاستماع للمقطع والتحكم به خارج التطبيق', style: TextStyle(color: Colors.white24, fontSize: 11)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _playAudioTrackOnly(item, libraryController);
+                },
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _playAudioTrackOnly(LocalMediaItem item, LibraryController libraryController) async {
     final absPath = await libraryController.getAbsolutePath(item.filePath);
     final isFileExists = await File(absPath).exists();
     if (!isFileExists) {
