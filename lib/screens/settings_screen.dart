@@ -232,6 +232,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         onTap: _showQualityPicker,
                       ),
                       const Divider(color: Colors.white10, height: 1),
+                      ListTile(
+                        leading: const Icon(Icons.music_note, color: Color(0xffffb2b7)),
+                        title: const Text('محول الفيديو إلى صوت', style: TextStyle(color: Color(0xffdae2fd), fontSize: 14)),
+                        subtitle: const Text('طريقة استخراج الصوت من الفيديوهات المحملة', style: TextStyle(color: Colors.white24, fontSize: 11)),
+                        trailing: const Icon(Icons.arrow_back_ios, color: Colors.white24, size: 14),
+                        onTap: _showConversionGuideDialog,
+                      ),
+                      const Divider(color: Colors.white10, height: 1),
                       // Mock App Theme Settings
                       ListTile(
                         leading: const Icon(Icons.dark_mode, color: Color(0xff89ceff)),
@@ -304,7 +312,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                       SizedBox(height: 4),
                       Text(
-                        'الإصدار 1.0.0 (Build 1)',
+                        'الإصدار 1.0.1 (Build 2)',
                         style: TextStyle(color: Colors.white10, fontSize: 10),
                       ),
                     ],
@@ -400,6 +408,81 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ],
         );
       },
+    );
+  }
+
+  void _showConversionGuideDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => Directionality(
+        textDirection: TextDirection.rtl,
+        child: AlertDialog(
+          backgroundColor: const Color(0xff171f33),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.music_note, color: Color(0xffd0bcff)),
+              SizedBox(width: 8),
+              Text('المحول الداخلي للفيديو', style: TextStyle(color: Color(0xffdae2fd), fontSize: 18, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: const Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'التطبيق يحتوي بالفعل على محول داخلي ذكي جداً لاستخراج الصوت من أي فيديو محمل. إليك طريقة الاستخدام السريعة:',
+                style: TextStyle(color: Color(0xffdae2fd), fontSize: 14),
+              ),
+              SizedBox(height: 16),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('1. ', style: TextStyle(color: Color(0xffd0bcff), fontWeight: FontWeight.bold)),
+                  Expanded(
+                    child: Text(
+                      'اذهب إلى قسم "المكتبة" (التبويب الأول من اليمين في الأسفل).',
+                      style: TextStyle(color: Color(0xffcbc3d7), fontSize: 13),
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 8),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('2. ', style: TextStyle(color: Color(0xffd0bcff), fontWeight: FontWeight.bold)),
+                  Expanded(
+                    child: Text(
+                      'ابحث عن مقطع الفيديو الذي قمت بتنزيله واضغط على النقاط الثلاثة بجانب اسم الفيديو.',
+                      style: TextStyle(color: Color(0xffcbc3d7), fontSize: 13),
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 8),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('3. ', style: TextStyle(color: Color(0xffd0bcff), fontWeight: FontWeight.bold)),
+                  Expanded(
+                    child: Text(
+                      'اختر خيار "تحويل إلى ملف صوتي MP3" وسيقوم التطبيق فوراً باستخراج الصوت وحفظه بجودة عالية جداً (320kbps) في مكتبة الصوتيات.',
+                      style: TextStyle(color: Color(0xffcbc3d7), fontSize: 13),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('حسناً، فهمت', style: TextStyle(color: Color(0xffd0bcff), fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

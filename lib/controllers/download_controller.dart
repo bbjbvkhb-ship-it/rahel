@@ -544,7 +544,10 @@ class DownloadController extends ChangeNotifier {
       }
     } catch (e) {
       if (kDebugMode) print('Download error: $e');
-      final errorMsg = e.toString().replaceAll('Exception:', '').trim();
+      var errorMsg = e.toString().replaceAll('Exception:', '').trim();
+      if (task.isAudio) {
+        errorMsg += '\n💡 نصيحة: جرب تحميل المقطع كفيديو (MP4) ثم قم بتحويله إلى صوت بضغطة زر واحدة من المكتبة.';
+      }
       task.update(status: DownloadStatus.failed, errorMessage: errorMsg);
       _errorMessage = errorMsg;
       _status = DownloadStatus.failed;
